@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stockfolio — India Portfolio Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --black: #07080d; --dark: #0e1016; --card: #141720; --card2: #191d28;
+      --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+      --gold: #d4a847; --gold-light: #f0c96a; --gold-dim: rgba(212,168,71,0.13);
+      --green: #3ddc84; --green-dim: rgba(61,220,132,0.1);
+      --red: #f05454; --red-dim: rgba(240,84,84,0.1);
+      --text: #e8e8f0; --muted: #7a7a9a; --muted2: #3a3a5a;
+    }
+    html { scroll-behavior: smooth; }
+    body { background: var(--black); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100vh; overflow-x: hidden; }
+    button { font-family: 'Syne', sans-serif; cursor: pointer; border: none; }
+    input { font-family: 'Syne', sans-serif; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--dark); }
+    ::-webkit-scrollbar-thumb { background: var(--muted2); border-radius: 3px; }
+
+    /* NOISE */
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity: 0.35;
+    }
+
+    /* TICKER */
+    .ticker-bar { background: var(--dark); border-bottom: 1px solid var(--border); overflow: hidden; padding: 9px 0; position: sticky; top: 0; z-index: 200; }
+    .ticker-track { display: flex; gap: 60px; animation: ticker 55s linear infinite; width: max-content; padding: 0 30px; }
+    .ticker-track:hover { animation-play-state: paused; }
+    @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+    .ticker-item { display: flex; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; white-space: nowrap; }
+    .ticker-sym { color: var(--gold); font-weight: 600; letter-spacing: 0.5px; }
+    .ticker-price { color: var(--text); }
+    .ticker-chg.up { color: var(--green); } .ticker-chg.dn { color: var(--red); }
+    .ticker-loading { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); padding: 0 24px; animation: blink 1.4s ease-in-out infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+    /* NAV */
+    nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 48px; background: rgba(7,8,13,0.9); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); position: sticky; top: 37px; z-index: 100; gap: 12px; flex-wrap: wrap; }
+    .logo { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--gold); display: flex; align-items: center; gap: 10px; }
+    .logo-dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; animation: blink 2s ease-in-out infinite; }
+    .nav-links { display: flex; gap: 4px; }
+    .nav-link { background: transparent; color: var(--muted); padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; transition: all .2s; }
+    .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .nav-link.active { color: var(--text); background: rgba(255,255,255,0.08); }
+    .nav-right { display: flex; align-items: center; gap: 10px; }
+    .nav-badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--gold); background: var(--gold-dim); border: 1px solid rgba(212,168,71,0.25); padding: 5px 12px; border-radius: 100px; letter-spacing: 1px; }
+    .refresh-btn { background: rgba(255,255,255,0.05); color: var(--muted); border: 1px solid var(--border); padding: 5px 12px; border-radius: 8px; font-size: 12px; font-family: 'IBM Plex Mono', monospace; transition: all .2s; }
+    .refresh-btn:hover { color: var(--text); background: rgba(255,255,255,0.08); }
+
+    /* LAYOUT */
+    .app { min-height: 100vh; }
+    .section { max-width: 1280px; margin: 0 auto; padding: 40px 48px 80px; }
+
+    /* BANNERS */
+    .error-banner { background: rgba(240,84,84,0.08); border-bottom: 1px solid rgba(240,84,84,0.15); padding: 10px 48px; font-size: 13px; color: var(--red); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .error-banner button { background: rgba(240,84,84,0.15); color: var(--red); border: 1px solid rgba(240,84,84,0.25); padding: 3px 12px; border-radius: 5px; font-size: 12px; transition: all .2s; cursor: pointer; }
+    .error-banner button:hover { background: rgba(240,84,84,0.25); }
+    .info-bar { text-align: right; padding: 5px 48px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted2); }
+
+    /* DASHBOARD HERO */
+    .dash-hero { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding-bottom: 28px; border-bottom: 1px solid var(--border); gap: 20px; flex-wrap: wrap; }
+    .section-tag { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--gold); letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 8px; }
+    .nav-value { font-family: 'DM Serif Display', serif; font-size: clamp(38px, 5vw, 68px); color: #fff; line-height: 1; letter-spacing: -2px; margin-bottom: 8px; }
+    .nav-change { font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+    .nav-change.up { color: var(--green); } .nav-change.dn { color: var(--red); }
+
+    /* STATS GRID */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 28px; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; transition: border-color .2s; }
+    .stat-card:hover { border-color: var(--border2); }
+    .stat-label { font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
+    .stat-value { font-family: 'DM Serif Display', serif; font-size: 26px; color: #fff; letter-spacing: -0.5px; line-height: 1; }
+    .stat-value.up { color: var(--green); } .stat-value.dn { color: var(--red); }
+
+    /* CARD */
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; padding: 18px 22px; border-bottom: 1px solid var(--border); }
+    .card-title { font-family: 'DM Serif Display', serif; font-size: 18px; color: #fff; }
+
+    /* SECTION HEADER */
+    .section-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; gap: 16px; flex-wrap: wrap; }
+    .section-header h2 { font-family: 'DM Serif Display', serif; font-size: 30px; color: #fff; letter-spacing: -1px; margin-top: 4px; }
+
+    /* TABLE */
+    .table-wrap { overflow-x: auto; }
+    .table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .table th { padding: 11px 16px; font-size: 10px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); font-weight: 500; letter-spacing: 1.2px; text-transform: uppercase; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .table td { padding: 13px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .table tr:last-child td { border-bottom: none; }
+    .table tbody tr { transition: background .15s; }
+    .table tbody tr:hover { background: rgba(255,255,255,0.022); }
+    .right { text-align: right; }
+
+    /* STOCK CELL */
+    .stock-cell { display: flex; align-items: center; gap: 12px; }
+    .stock-badge { width: 38px; height: 38px; background: var(--gold-dim); border: 1px solid rgba(212,168,71,0.18); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 8px; font-weight: 600; color: var(--gold); flex-shrink: 0; letter-spacing: 0.3px; }
+    .stock-badge.sm { width: 32px; height: 32px; font-size: 7px; }
+    .stock-badge.lg { width: 46px; height: 46px; font-size: 9px; border-radius: 12px; }
+    .stock-name { font-weight: 600; font-size: 13px; color: var(--text); }
+    .stock-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .stock-sector { display: inline-block; font-size: 9px; color: var(--gold); background: var(--gold-dim); padding: 2px 7px; border-radius: 4px; margin-top: 4px; letter-spacing: 0.5px; font-family: 'IBM Plex Mono', monospace; }
+    .mono { font-family: 'IBM Plex Mono', monospace; }
+    .pct-small { font-size: 10px; margin-top: 2px; }
+    .up { color: var(--green); } .dn { color: var(--red); }
+
+    /* TYPE BADGE */
+    .type-badge { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 1px; padding: 4px 10px; border-radius: 6px; }
+    .type-badge.buy { background: var(--green-dim); color: var(--green); }
+    .type-badge.sell { background: var(--red-dim); color: var(--red); }
+
+    /* BUTTONS */
+    .btn-primary { background: var(--gold); color: var(--black); padding: 11px 26px; border-radius: 8px; font-weight: 700; font-size: 13px; letter-spacing: 0.3px; transition: all .2s; border: none; }
+    .btn-primary:hover { background: var(--gold-light); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(212,168,71,0.18); }
+    .btn-primary.full { width: 100%; padding: 14px; margin-top: 18px; font-size: 14px; }
+    .btn-sell-confirm { background: var(--red); color: #fff; padding: 11px 26px; border-radius: 8px; font-weight: 700; font-size: 13px; transition: all .2s; border: none; }
+    .btn-sell-confirm:hover { background: #f36464; transform: translateY(-1px); }
+    .btn-sell-confirm.full { width: 100%; padding: 14px; margin-top: 18px; font-size: 14px; }
+    .btn-sell-row { background: transparent; color: var(--red); border: 1px solid rgba(240,84,84,0.3); padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; transition: all .2s; }
+    .btn-sell-row:hover { background: var(--red-dim); border-color: var(--red); }
+    .btn-buy-more { background: transparent; color: var(--green); border: 1px solid rgba(61,220,132,0.3); padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; transition: all .2s; margin-right: 6px; }
+    .btn-buy-more:hover { background: var(--green-dim); border-color: var(--green); }
+    .link-btn { background: transparent; color: var(--gold); border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: color .2s; }
+    .link-btn:hover { color: var(--gold-light); }
+
+    /* EMPTY STATE */
+    .empty-state { text-align: center; padding: 90px 40px; }
+    .empty-icon { font-size: 52px; margin-bottom: 18px; }
+    .empty-state h3 { font-family: 'DM Serif Display', serif; font-size: 26px; color: #fff; margin-bottom: 10px; }
+    .empty-state p { font-size: 14px; color: var(--muted); margin-bottom: 28px; line-height: 1.7; max-width: 400px; margin-left: auto; margin-right: auto; }
+
+    /* MODAL */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(7,8,13,0.88); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; z-index: 500; padding: 20px; animation: fadeIn .18s ease; }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    .modal { background: var(--card); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 30px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; animation: slideUp .22s ease; }
+    @keyframes slideUp { from{transform:translateY(16px);opacity:0} to{transform:translateY(0);opacity:1} }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
+    .modal-title { font-family: 'DM Serif Display', serif; font-size: 22px; color: #fff; }
+    .modal-close { background: rgba(255,255,255,0.07); color: var(--muted); width: 30px; height: 30px; border-radius: 7px; font-size: 13px; cursor: pointer; transition: all .2s; border: none; }
+    .modal-close:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+
+    /* FORM */
+    .modal-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text); padding: 12px 14px; border-radius: 10px; font-size: 14px; outline: none; transition: border-color .2s; margin-bottom: 10px; }
+    .modal-input:focus { border-color: rgba(212,168,71,0.5); background: rgba(255,255,255,0.07); }
+    .modal-input::placeholder { color: var(--muted); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 4px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-label { font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; letter-spacing: 1.5px; text-transform: uppercase; }
+    .form-group .modal-input { margin-bottom: 0; }
+
+    /* STOCK LIST */
+    .stock-list { display: flex; flex-direction: column; gap: 1px; max-height: 340px; overflow-y: auto; margin-top: 4px; }
+    .stock-list-item { display: flex; align-items: center; gap: 12px; padding: 11px 10px; border-radius: 10px; cursor: pointer; transition: background .12s; }
+    .stock-list-item:hover { background: rgba(255,255,255,0.06); }
+    .sli-info { flex: 1; min-width: 0; }
+    .sli-price { text-align: right; flex-shrink: 0; }
+
+    /* SELECTED STOCK */
+    .selected-stock { display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 18px; }
+    .selected-stock > div:nth-child(2) { flex: 1; min-width: 0; }
+    .ltp-line { font-family: 'IBM Plex Mono', monospace; font-size: 11px; margin-top: 4px; }
+
+    /* ORDER SUMMARY */
+    .order-summary { display: flex; justify-content: space-between; align-items: center; background: var(--gold-dim); border: 1px solid rgba(212,168,71,0.18); border-radius: 10px; padding: 13px 15px; margin: 14px 0; font-size: 13px; }
+    .order-val { font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: var(--gold); font-size: 15px; }
+    .order-summary-sell { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 12px 15px; margin: 14px 0; }
+    .os-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 13px; }
+    .os-label { color: var(--muted); }
+    .os-val { font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+    .os-row.total { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px; }
+
+    /* ERROR */
+    .field-error { background: var(--red-dim); color: var(--red); border: 1px solid rgba(240,84,84,0.2); border-radius: 8px; padding: 9px 13px; font-size: 12px; margin-top: 10px; }
+
+    /* BUDGET */
+    .budget-pill { display: flex; align-items: center; gap: 8px; background: rgba(61,220,132,0.08); border: 1px solid rgba(61,220,132,0.2); padding: 5px 14px; border-radius: 100px; cursor: pointer; transition: all .2s; }
+    .budget-pill:hover { background: rgba(61,220,132,0.14); border-color: rgba(61,220,132,0.35); }
+    .budget-pill-label { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; }
+    .budget-pill-value { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: var(--green); }
+    .budget-pill.low { background: rgba(240,84,84,0.08); border-color: rgba(240,84,84,0.2); }
+    .budget-pill.low .budget-pill-value { color: var(--red); }
+    .budget-pill.low:hover { background: rgba(240,84,84,0.14); border-color: rgba(240,84,84,0.35); }
+
+    .budget-hero { background: linear-gradient(135deg, rgba(61,220,132,0.06) 0%, rgba(212,168,71,0.06) 100%); border: 1px solid rgba(61,220,132,0.15); border-radius: 20px; padding: 36px 40px; margin-bottom: 28px; display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+    .budget-balance-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 10px; }
+    .budget-balance-value { font-family: 'DM Serif Display', serif; font-size: clamp(36px, 5vw, 60px); color: var(--green); line-height: 1; letter-spacing: -2px; }
+    .budget-balance-value.low { color: var(--red); }
+    .budget-balance-sub { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .budget-actions { display: flex; flex-direction: column; gap: 10px; min-width: 240px; }
+    .budget-input-row { display: flex; gap: 8px; }
+    .budget-input-row .modal-input { margin-bottom: 0; flex: 1; }
+
+    .budget-log { margin-top: 28px; }
+    .budget-log-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; border-bottom: 1px solid var(--border); font-size: 13px; transition: background .12s; }
+    .budget-log-item:last-child { border-bottom: none; }
+    .budget-log-item:hover { background: rgba(255,255,255,0.02); }
+    .budget-log-left { display: flex; align-items: center; gap: 12px; }
+    .budget-log-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .budget-log-icon.credit { background: rgba(61,220,132,0.1); }
+    .budget-log-icon.debit { background: rgba(240,84,84,0.1); }
+    .budget-log-icon.topup { background: rgba(212,168,71,0.1); }
+    .budget-log-desc { font-size: 13px; color: var(--text); }
+    .budget-log-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: 'IBM Plex Mono', monospace; }
+    .budget-log-amount { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px; text-align: right; }
+    .budget-log-balance { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); text-align: right; margin-top: 2px; }
+    .budget-warn { background: rgba(240,84,84,0.08); border: 1px solid rgba(240,84,84,0.2); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: var(--red); margin-bottom: 10px; }
+
+    /* ALLOCATION BAR */
+    .alloc-bar { height: 4px; background: rgba(255,255,255,0.07); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+    .alloc-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--gold), var(--green)); }
+
+    /* RESPONSIVE */
+    @media (max-width: 960px) {
+      nav { padding: 14px 20px; }
+      .section { padding: 28px 20px 60px; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .dash-hero { flex-direction: column; }
+      .section-header { flex-direction: column; align-items: flex-start; }
+      .error-banner, .info-bar { padding-left: 20px; padding-right: 20px; }
+      .form-row { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 580px) {
+      .nav-links { display: none; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"><div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:'IBM Plex Mono',monospace;color:#7a7a9a;font-size:13px;">Loading Stockfolio…</div></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useMemo } = React;
+
+    /* Removed CATALOG as requested */
+
+    /* Removed ^NSEI and ^BSESN indices to prevent Yahoo Spark endpoint 400 Bad Request errors */
+    const TICKER_SYMS = ['RELIANCE.NS','TCS.NS','INFY.NS','HDFCBANK.NS','ICICIBANK.NS','BHARTIARTL.NS','SBIN.NS','ITC.NS','WIPRO.NS','BAJFINANCE.NS','HCLTECH.NS'];
+
+    /* ─── UTILS ─── */
+    const fmt = (n) => {
+      if (n == null || isNaN(n)) return '—';
+      return '₹' + Math.abs(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+    const fmtL = (n) => {
+      if (n == null || isNaN(n)) return '—';
+      const abs = Math.abs(n);
+      if (abs >= 1e7) return '₹' + (n/1e7).toFixed(2) + ' Cr';
+      if (abs >= 1e5) return '₹' + (n/1e5).toFixed(2) + ' L';
+      return fmt(n);
+    };
+    const fmtPct = (n) => {
+      if (n == null || isNaN(n)) return 'ERR';
+      return (n >= 0 ? '+' : '') + (n||0).toFixed(2) + '%';
+    };
+    const fmtDt = (iso) => new Date(iso).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + new Date(iso).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+    const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+    const sign = (n) => n >= 0 ? '+' : '';
+
+    /* ─── API ─── */
+    /* Fetch all symbols from your custom Python backend */
+/* Fetch all symbols from your custom Python backend */
+/* Fetch all symbols from your custom Python backend */
+    async function fetchPrices(symbols) {
+      if (!symbols || !symbols.length) return { _liveCount: 0 };
+      
+      const CHUNK_SIZE = 10;
+      const results = {};
+      let liveCount = 0;
+
+      for (let i = 0; i < symbols.length; i += CHUNK_SIZE) {
+        const chunk = symbols.slice(i, i + CHUNK_SIZE);
+        const symStr = chunk.map(encodeURIComponent).join(',');
+        
+        const localApiUrl = `http://localhost:3000/api/prices?symbols=${symStr}`;
+
+        try {
+          const response = await fetch(localApiUrl);
+          if (!response.ok) throw new Error('Network response was not ok');
+          
+          const data = await response.json();
+          
+          // FIX: Parse the flat v8 Spark structure correctly
+          Object.keys(data).forEach(sym => {
+            const item = data[sym];
+            
+            // Check if we have a valid array of closing prices
+            if (item && item.close && Array.isArray(item.close)) {
+              
+              // Filter out any 'null' gaps in the chart data
+              const validCloses = item.close.filter(p => p !== null);
+              
+              if (validCloses.length > 0) {
+                // The Last Traded Price (LTP) is the very last item in the array
+                const price = validCloses[validCloses.length - 1];
+                
+                // Get previous close directly from the root object
+                const prev = item.previousClose || item.chartPreviousClose || price;
+                
+                // Calculate P&L
+                const change = +(price - prev).toFixed(2);
+                const pct = prev ? +(change / prev * 100).toFixed(2) : 0;
+                
+                results[sym] = { price, change, pct };
+                liveCount++;
+              }
+            }
+          });
+          
+        } catch (e) {
+          console.warn(`Chunk ${Math.floor(i/CHUNK_SIZE) + 1} failed:`, e?.message);
+        }
+      }
+
+      // Ensure every requested symbol gets an entry in the map to prevent UI crashes
+      symbols.forEach(sym => {
+        if (!results[sym]) results[sym] = { price: null, change: null, pct: null };
+      });
+
+      results._liveCount = liveCount;
+      return results;
+    }
+
+    /* ─── TICKER BAR ─── */
+    function TickerBar({ prices, loading, holdings }) {
+      const portfolioSyms = holdings ? holdings.map(h => h.symbol) : [];
+      const combinedSyms = [...new Set([...TICKER_SYMS, ...portfolioSyms])];
+
+      const items = combinedSyms.map(sym => {
+        const p = prices[sym] || { price: null, change: null, pct: null };
+        // Since CATALOG is gone, we dynamically generate a clean display name
+        let display = sym.replace('.NS', '').replace('.BO', ''); 
+        return { sym, display, ...p };
+      });
+
+      if (!items.length)
+        return <div className="ticker-bar"><div className="ticker-loading">{loading ? '◆ Connecting to backend feed…' : '◆ Market data unavailable — check connection'}</div></div>;
+
+      const doubled = [...items, ...items];
+      return (
+        <div className="ticker-bar">
+          <div className="ticker-track">
+            {doubled.map((item, i) => (
+              <div key={i} className="ticker-item">
+                <span className="ticker-sym">{item.display}</span>
+                <span className="ticker-price">{item.price !== null ? fmt(item.price) : '—'}</span>
+                <span className={`ticker-chg ${(item.pct||0) >= 0 ? 'up' : 'dn'}`}>{item.pct !== null ? fmtPct(item.pct) : 'ERR'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── NAVBAR ─── */
+    function NavBar({ view, setView, onRefresh, lastUpdated, loading, budget }) {
+      const isLow = budget < 10000;
+      return (
+        <nav>
+          <div className="logo"><div className="logo-dot"/><span>Stockfolio</span></div>
+          <div className="nav-links">
+            {['dashboard','holdings','transactions','budget'].map(v => (
+              <button key={v} className={`nav-link${view===v?' active':''}`} onClick={() => setView(v)}>
+                {v[0].toUpperCase()+v.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div className="nav-right">
+            {lastUpdated && (
+              <button className="refresh-btn" onClick={onRefresh} disabled={loading}>
+                {loading ? '⟳ Refreshing…' : `⟳ ${lastUpdated.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}`}
+              </button>
+            )}
+            <div className={`budget-pill${isLow?' low':''}`} onClick={() => setView('budget')} title="Click to manage budget">
+              <div className="budget-pill-label">Balance</div>
+              <div className="budget-pill-value">{fmtL(budget)}</div>
+            </div>
+            <div className="nav-badge">NSE · LIVE</div>
+          </div>
+        </nav>
+      );
+    }
+
+    /* ─── DASHBOARD ─── */
+    function Dashboard({ holdings, transactions, prices, pricesLoaded, onBuy, setView, budget }) {
+      const totalInvested = holdings.reduce((a,h) => a + h.qty*h.avgBuy, 0);
+      const currentValue  = holdings.reduce((a,h) => {
+        const cp = prices[h.symbol]?.price;
+        return a + h.qty*(cp !== null && cp !== undefined ? cp : h.avgBuy);
+      }, 0);
+      const unrealPnL = currentValue - totalInvested;
+      const unrealPct = totalInvested > 0 ? (unrealPnL/totalInvested)*100 : 0;
+      const realPnL   = transactions.filter(t=>t.type==='SELL').reduce((a,t)=>a+(t.rPnL||0),0);
+
+      const top = [...holdings].map(h => {
+        const cp = prices[h.symbol]?.price ?? null;
+        const cv = cp !== null ? h.qty * cp : null;
+        const pnl = cp !== null ? h.qty * (cp - h.avgBuy) : null;
+        const pnlPct = cp !== null ? (cp - h.avgBuy) / h.avgBuy * 100 : null;
+        return { ...h, cp, cv, pnl, pnlPct, chgPct: prices[h.symbol]?.pct ?? null };
+      }).sort((a,b)=>(b.cv||0)-(a.cv||0)).slice(0,5);
+
+      const totalCV = top.reduce((a,h)=>a+(h.cv||0),0)||1;
+
+      return (
+        <div className="section">
+          <div className="dash-hero">
+            <div>
+              <div className="section-tag">// NET ASSET VALUE · NSE INDIA</div>
+              <div className="nav-value">{holdings.length ? (pricesLoaded ? fmtL(currentValue) : fmtL(totalInvested)) : '₹0.00'}</div>
+              {holdings.length > 0 && pricesLoaded && (
+                <div className={`nav-change ${unrealPnL>=0?'up':'dn'}`}>
+                  {unrealPnL>=0?'▲':'▼'} {fmt(Math.abs(unrealPnL))} unrealised ({fmtPct(unrealPct)}) &nbsp;·&nbsp; Total P&amp;L: {sign(unrealPnL+realPnL)}{fmtL(unrealPnL+realPnL)}
+                </div>
+              )}
+            </div>
+            <button className="btn-primary" onClick={onBuy}>+ Buy Stock</button>
+          </div>
+
+          <div className="stats-grid" style={{gridTemplateColumns:'repeat(5,1fr)'}}>
+            <div className="stat-card"><div className="stat-label">Total Invested</div><div className="stat-value">{fmtL(totalInvested)||'₹0.00'}</div></div>
+            <div className="stat-card"><div className="stat-label">Current Value</div><div className="stat-value">{pricesLoaded && holdings.length ? fmtL(currentValue) : '—'}</div></div>
+            <div className="stat-card"><div className="stat-label">Unrealised P&amp;L</div>
+              <div className={`stat-value ${unrealPnL>=0?'up':'dn'}`}>{pricesLoaded && holdings.length ? sign(unrealPnL)+fmtL(unrealPnL) : '—'}</div>
+            </div>
+            <div className="stat-card"><div className="stat-label">Realised P&amp;L</div>
+              <div className={`stat-value ${realPnL>=0?'up':'dn'}`}>{realPnL!==0 ? sign(realPnL)+fmtL(realPnL) : '₹0.00'}</div>
+            </div>
+            <div className="stat-card" style={{borderColor: budget<10000?'rgba(240,84,84,0.3)':'var(--border)'}}>
+              <div className="stat-label">Available Balance</div>
+              <div className={`stat-value ${budget>=10000?'up':'dn'}`}>{fmtL(budget)}</div>
+            </div>
+          </div>
+
+          {holdings.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">📈</div>
+              <h3>Your portfolio is empty</h3>
+              <p>Start building your Indian stock portfolio. Buy NSE stocks, track live prices, and monitor your P&amp;L in real time. All data persists in your browser.</p>
+              <button className="btn-primary" onClick={onBuy}>Buy Your First Stock →</button>
+            </div>
+          ) : (
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">Top Holdings</div>
+                <button className="link-btn" onClick={()=>setView('holdings')}>View all {holdings.length} →</button>
+              </div>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead><tr>
+                    <th>Stock</th><th className="right">Qty</th><th className="right">Avg Buy</th>
+                    <th className="right">LTP</th><th className="right">Value</th><th className="right">P&amp;L</th><th>Allocation</th>
+                  </tr></thead>
+                  <tbody>
+                    {top.map(h=>(
+                      <tr key={h.symbol}>
+                        <td><div className="stock-cell">
+                          <div className="stock-badge">{h.ds.slice(0,4)}</div>
+                          <div><div className="stock-name">{h.ds}</div><div className="stock-sub">{h.name}</div></div>
+                        </div></td>
+                        <td className="right mono">{h.qty}</td>
+                        <td className="right mono">{fmt(h.avgBuy)}</td>
+                        <td className="right mono">{pricesLoaded && h.cp !== null ? fmt(h.cp) : '—'}</td>
+                        <td className="right mono">{pricesLoaded && h.cv !== null ? fmtL(h.cv) : '—'}</td>
+                        <td className={`right mono ${h.pnl>=0?'up':'dn'}`}>
+                          {pricesLoaded && h.pnl !== null ? sign(h.pnl)+fmt(h.pnl) : '—'}
+                          <div className="pct-small">{pricesLoaded && h.pnlPct !== null ? fmtPct(h.pnlPct) : ''}</div>
+                        </td>
+                        <td style={{minWidth:'100px'}}>
+                          <div style={{fontSize:'10px',color:'var(--muted)',fontFamily:'IBM Plex Mono',marginBottom:'4px'}}>{h.cv !== null ? ((h.cv/totalCV)*100).toFixed(1) : 0}%</div>
+                          <div className="alloc-bar"><div className="alloc-fill" style={{width:`${h.cv !== null ? (h.cv/totalCV)*100 : 0}%`}}/></div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ─── HOLDINGS VIEW ─── */
+    function HoldingsView({ holdings, prices, pricesLoaded, onBuy, onBuyMore, onSell }) {
+      const enriched = holdings.map(h => {
+        const cp = prices[h.symbol]?.price ?? null;
+        const cv = cp !== null ? h.qty * cp : null;
+        const pnl = cp !== null ? h.qty * (cp - h.avgBuy) : null;
+        const pnlPct = cp !== null ? (cp - h.avgBuy) / h.avgBuy * 100 : null;
+        return { ...h, cp, chgPct: prices[h.symbol]?.pct ?? null, cv, invested: h.qty*h.avgBuy, pnl, pnlPct };
+      }).sort((a,b)=>(b.cv||0)-(a.cv||0));
+
+      if (!holdings.length)
+        return <div className="section"><div className="empty-state"><div className="empty-icon">📊</div><h3>No holdings yet</h3><p>Buy stocks to start building your portfolio.</p><button className="btn-primary" onClick={onBuy}>+ Buy Stock</button></div></div>;
+
+      const totalInvested = enriched.reduce((a,h)=>a+h.invested,0);
+      const totalValue    = enriched.reduce((a,h)=>a+(h.cv||h.invested),0);
+      const totalPnL      = enriched.reduce((a,h)=>a+(h.pnl||0),0);
+
+      return (
+        <div className="section">
+          <div className="section-header">
+            <div><div className="section-tag">// MY HOLDINGS</div><h2>{holdings.length} Position{holdings.length!==1?'s':''}</h2></div>
+            <button className="btn-primary" onClick={onBuy}>+ Buy Stock</button>
+          </div>
+          <div className="card">
+            <div className="table-wrap">
+              <table className="table">
+                <thead><tr>
+                  <th>Company</th><th className="right">Qty</th><th className="right">Avg Buy</th>
+                  <th className="right">LTP</th><th className="right">Today</th>
+                  <th className="right">Value</th><th className="right">Invested</th>
+                  <th className="right">P&amp;L</th><th className="right">P&amp;L %</th><th></th>
+                </tr></thead>
+                <tbody>
+                  {enriched.map(h=>(
+                    <tr key={h.symbol}>
+                      <td><div className="stock-cell">
+                        <div className="stock-badge">{h.ds.slice(0,4)}</div>
+                        <div><div className="stock-name">{h.ds}</div><div className="stock-sub">{h.name}</div><div className="stock-sector">{h.sector}</div></div>
+                      </div></td>
+                      <td className="right mono">{h.qty}</td>
+                      <td className="right mono">{fmt(h.avgBuy)}</td>
+                      <td className="right mono">{pricesLoaded && h.cp !== null ? fmt(h.cp) : '—'}</td>
+                      <td className={`right mono ${h.chgPct>=0?'up':'dn'}`}>{pricesLoaded && h.chgPct !== null ? fmtPct(h.chgPct) : '—'}</td>
+                      <td className="right mono">{pricesLoaded && h.cv !== null ? fmtL(h.cv) : '—'}</td>
+                      <td className="right mono">{fmtL(h.invested)}</td>
+                      <td className={`right mono ${h.pnl>=0?'up':'dn'}`}>{pricesLoaded && h.pnl !== null ? sign(h.pnl)+fmt(h.pnl) : '—'}</td>
+                      <td className={`right mono ${h.pnlPct>=0?'up':'dn'}`}>{pricesLoaded && h.pnlPct !== null ? fmtPct(h.pnlPct) : '—'}</td>
+                      <td style={{whiteSpace:'nowrap'}}>
+                        <button className="btn-buy-more" onClick={()=>onBuyMore(h)}>Buy+</button>
+                        <button className="btn-sell-row" onClick={()=>onSell(h)}>Sell</button>
+                      </td>
+                    </tr>
+                  ))}
+                  {pricesLoaded && (
+                    <tr style={{background:'rgba(255,255,255,0.02)'}}>
+                      <td colSpan={6} style={{fontWeight:700,fontSize:'13px',padding:'13px 16px',color:'var(--muted)',fontFamily:'IBM Plex Mono'}}>TOTAL</td>
+                      <td className="right mono" style={{fontWeight:600}}>{fmtL(totalInvested)}</td>
+                      <td className={`right mono ${totalPnL>=0?'up':'dn'}`} style={{fontWeight:600}}>{sign(totalPnL)}{fmtL(totalPnL)}</td>
+                      <td className={`right mono ${totalPnL>=0?'up':'dn'}`} style={{fontWeight:600}}>{fmtPct(totalInvested>0?(totalPnL/totalInvested)*100:0)}</td>
+                      <td/>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── TRANSACTIONS VIEW ─── */
+    function TransactionsView({ transactions, onClear }) {
+      const sorted = [...transactions].sort((a,b)=>new Date(b.date)-new Date(a.date));
+      const totalBought  = transactions.filter(t=>t.type==='BUY').reduce((a,t)=>a+t.total,0);
+      const totalSold    = transactions.filter(t=>t.type==='SELL').reduce((a,t)=>a+t.total,0);
+      const realPnL      = transactions.filter(t=>t.type==='SELL').reduce((a,t)=>a+(t.rPnL||0),0);
+      const buyCount     = transactions.filter(t=>t.type==='BUY').length;
+      const sellCount    = transactions.filter(t=>t.type==='SELL').length;
+
+      if (!transactions.length)
+        return <div className="section"><div className="empty-state"><div className="empty-icon">📜</div><h3>No transactions yet</h3><p>Your buy and sell history will appear here.</p></div></div>;
+
+      return (
+        <div className="section">
+          <div className="section-header">
+            <div><div className="section-tag">// TRANSACTION HISTORY</div><h2>{transactions.length} Trade{transactions.length!==1?'s':''}</h2></div>
+            <button className="link-btn" style={{color:'var(--red)',fontSize:'12px'}} onClick={onClear}>Clear all</button>
+          </div>
+          <div className="stats-grid" style={{marginBottom:'20px'}}>
+            <div className="stat-card"><div className="stat-label">Total Bought ({buyCount})</div><div className="stat-value">{fmtL(totalBought)}</div></div>
+            <div className="stat-card"><div className="stat-label">Total Sold ({sellCount})</div><div className="stat-value">{fmtL(totalSold)}</div></div>
+            <div className="stat-card"><div className="stat-label">Realised P&amp;L</div><div className={`stat-value ${realPnL>=0?'up':'dn'}`}>{realPnL!==0?sign(realPnL)+fmtL(realPnL):'₹0.00'}</div></div>
+            <div className="stat-card"><div className="stat-label">Total Trades</div><div className="stat-value">{transactions.length}</div></div>
+          </div>
+          <div className="card">
+            <div className="table-wrap">
+              <table className="table">
+                <thead><tr>
+                  <th>Date &amp; Time</th><th>Type</th><th>Stock</th>
+                  <th className="right">Qty</th><th className="right">Price</th>
+                  <th className="right">Total</th><th className="right">Realised P&amp;L</th>
+                </tr></thead>
+                <tbody>
+                  {sorted.map(t=>(
+                    <tr key={t.id}>
+                      <td className="mono" style={{fontSize:'11px',color:'var(--muted)'}}>{fmtDt(t.date)}</td>
+                      <td><span className={`type-badge ${t.type.toLowerCase()}`}>{t.type}</span></td>
+                      <td><div className="stock-cell">
+                        <div className="stock-badge sm">{t.ds.slice(0,4)}</div>
+                        <div><div className="stock-name">{t.ds}</div><div className="stock-sub">{t.name}</div></div>
+                      </div></td>
+                      <td className="right mono">{t.qty}</td>
+                      <td className="right mono">{fmt(t.price)}</td>
+                      <td className="right mono">{fmtL(t.total)}</td>
+                      <td className={`right mono ${t.type==='SELL'?(t.rPnL>=0?'up':'dn'):''}`}>
+                        {t.type==='SELL' ? sign(t.rPnL)+fmt(t.rPnL) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── BUDGET VIEW ─── */
+    function BudgetView({ budget, budgetLog, onTopUp, onSetBalance }) {
+      const [topUpAmt, setTopUpAmt] = useState('');
+      const [setAmt, setSetAmt] = useState('');
+      const [topErr, setTopErr] = useState('');
+      const [setErr, setSetErr] = useState('');
+      const isLow = budget < 10000;
+
+      const handleTopUp = () => {
+        const n = parseFloat(topUpAmt);
+        if (!n || n <= 0) return setTopErr('Enter a valid amount.');
+        if (n > 1e8) return setTopErr('Amount too large.');
+        onTopUp(n);
+        setTopUpAmt('');
+        setTopErr('');
+      };
+
+      const handleSet = () => {
+        const n = parseFloat(setAmt);
+        if (isNaN(n) || n < 0) return setSetErr('Enter a valid non-negative amount.');
+        onSetBalance(n);
+        setSetAmt('');
+        setSetErr('');
+      };
+
+      const sorted = [...budgetLog].reverse();
+
+      return (
+        <div className="section">
+          <div className="section-header">
+            <div><div className="section-tag">// TRADING BUDGET</div><h2>My Wallet</h2></div>
+          </div>
+
+          <div className="budget-hero">
+            <div>
+              <div className="budget-balance-label">Available Balance</div>
+              <div className={`budget-balance-value${isLow?' low':''}`}>{fmtL(budget)}</div>
+              <div className="budget-balance-sub">
+                {isLow ? '⚠ Low balance — consider adding funds' : '✦ Funds available for trading'}
+              </div>
+            </div>
+            <div className="budget-actions">
+              <div style={{fontSize:'10px',color:'var(--muted)',fontFamily:'IBM Plex Mono',letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:'4px'}}>Add Funds</div>
+              <div className="budget-input-row">
+                <input className="modal-input" type="number" min="1" step="100" placeholder="₹ Amount"
+                  value={topUpAmt} onChange={e=>{setTopUpAmt(e.target.value);setTopErr('');}}
+                  onKeyDown={e=>e.key==='Enter'&&handleTopUp()}/>
+                <button className="btn-primary" style={{padding:'11px 18px',whiteSpace:'nowrap'}} onClick={handleTopUp}>+ Add</button>
+              </div>
+              {topErr && <div style={{fontSize:'12px',color:'var(--red)'}}>{topErr}</div>}
+
+              <div style={{fontSize:'10px',color:'var(--muted)',fontFamily:'IBM Plex Mono',letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:'4px',marginTop:'12px'}}>Set Balance Manually</div>
+              <div className="budget-input-row">
+                <input className="modal-input" type="number" min="0" step="100" placeholder="₹ New balance"
+                  value={setAmt} onChange={e=>{setSetAmt(e.target.value);setSetErr('');}}
+                  onKeyDown={e=>e.key==='Enter'&&handleSet()}/>
+                <button onClick={handleSet} style={{padding:'11px 18px',background:'rgba(255,255,255,0.06)',color:'var(--text)',borderRadius:'8px',border:'1px solid var(--border)',fontSize:'13px',fontWeight:600,whiteSpace:'nowrap',cursor:'pointer'}}>Set</button>
+              </div>
+              {setErr && <div style={{fontSize:'12px',color:'var(--red)'}}>{setErr}</div>}
+            </div>
+          </div>
+
+          {sorted.length > 0 && (
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">Transaction Ledger</div>
+                <div style={{fontFamily:'IBM Plex Mono',fontSize:'11px',color:'var(--muted)'}}>{sorted.length} entries</div>
+              </div>
+              <div className="budget-log">
+                {sorted.map((entry, i) => {
+                  const isCredit = entry.delta > 0;
+                  const isTopup = entry.type === 'TOPUP' || entry.type === 'SET';
+                  const iconClass = isTopup ? 'topup' : isCredit ? 'credit' : 'debit';
+                  const icon = isTopup ? '💳' : isCredit ? '📈' : '📉';
+                  return (
+                    <div key={i} className="budget-log-item">
+                      <div className="budget-log-left">
+                        <div className={`budget-log-icon ${iconClass}`}>{icon}</div>
+                        <div>
+                          <div className="budget-log-desc">{entry.desc}</div>
+                          <div className="budget-log-meta">{fmtDt(entry.date)}</div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className={`budget-log-amount ${isCredit?'up':'dn'}`}>
+                          {isCredit?'+':''}{fmtL(entry.delta)}
+                        </div>
+                        <div className="budget-log-balance">Bal: {fmtL(entry.balance)}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {sorted.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-icon">💳</div>
+              <h3>No ledger entries yet</h3>
+              <p>Every buy, sell, and top-up will be recorded here. Add funds above to get started.</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ─── BUY MODAL ─── */
+    
+    /* Request search data from local Python backend */
+    async function searchSymbols(query) {
+      try {
+        const res = await fetch(`http://localhost:3000/api/search?q=${encodeURIComponent(query)}`);
+        if (!res.ok) return [];
+        const json = await res.json();
+        const quotes = json?.quotes || [];
+        
+        // Filter to mostly Indian exchanges, though Yahoo search can be noisy
+        return quotes
+          .filter(q => q.symbol && (q.exchDisp === 'NSE' || q.exchDisp === 'BSE' || q.symbol.endsWith('.NS') || q.symbol.endsWith('.BO')))
+          .map(q => ({
+            symbol: q.symbol,
+            ds: q.symbol.replace(/\.(NS|BO)$/, ''),
+            name: q.longname || q.shortname || q.symbol,
+            sector: q.sector || q.industryDisp || q.typeDisp || 'Equity',
+            exchange: q.exchDisp || 'NSE',
+          }));
+      } catch (e) {
+        console.warn('Search API failed:', e);
+        return [];
+      }
+    }
+
+    function BuyModal({ onClose, onBuy, prices, preselect, budget }) {
+      const [search, setSearch]       = useState('');
+      const [sel, setSel]             = useState(preselect || null);
+      const [qty, setQty]             = useState('');
+      const [price, setPrice]         = useState('');
+      const [err, setErr]             = useState('');
+      const [results, setResults]     = useState([]);
+      const [searching, setSearching] = useState(false);
+      const [searchErr, setSearchErr] = useState(false);
+      const debounceRef               = React.useRef(null);
+
+      useEffect(() => {
+        if (preselect) {
+          const ltp = prices[preselect.symbol]?.price;
+          if (ltp) setPrice(ltp.toFixed(2));
+        }
+      }, []);
+
+      // Trigger debounced fetch to Python backend
+      useEffect(() => {
+        if (!search.trim()) { setResults([]); setSearchErr(false); return; }
+        
+        clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(async () => {
+          setSearching(true); setSearchErr(false);
+          try {
+            const r = await searchSymbols(search);
+            setResults(r);
+            if (r.length === 0) setSearchErr(true);
+          } catch { 
+            setSearchErr(true); 
+          }
+          setSearching(false);
+        }, 500); // 500ms debounce
+        
+        return () => clearTimeout(debounceRef.current);
+      }, [search]);
+
+      const handleSelect = (stock) => {
+        setSel(stock); setSearch(''); setResults([]); setSearchErr(false);
+        const ltp = prices[stock.symbol]?.price;
+        setPrice(ltp ? ltp.toFixed(2) : '');
+        setErr('');
+      };
+
+      const qn = parseInt(qty) || 0, pn = parseFloat(price) || 0;
+
+      const handleBuy = () => {
+        if (!sel)         return setErr('Please select a stock.');
+        if (!qn || qn<=0) return setErr('Enter a valid quantity (whole number).');
+        if (!pn || pn<=0) return setErr('Enter a valid buy price.');
+        const total = qn * pn;
+        if (total > budget) return setErr(`Insufficient balance. You need ${fmtL(total)} but have ${fmtL(budget)}. Add funds in the Budget tab.`);
+        onBuy({ symbol: sel.symbol, ds: sel.ds, name: sel.name, sector: sel.sector, qty: qn, price: pn });
+        onClose();
+      };
+
+      return (
+        <div className="modal-overlay" onClick={onClose}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">{preselect ? `Buy More · ${preselect.ds}` : 'Buy Stock'}</div>
+              <button className="modal-close" onClick={onClose}>✕</button>
+            </div>
+
+            {!sel ? (
+              <>
+                <div style={{position:'relative'}}>
+                  <input
+                    className="modal-input"
+                    placeholder="Type to search Yahoo Finance for NSE/BSE stocks..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    autoFocus
+                    style={{paddingRight: searching ? '36px' : '14px'}}
+                  />
+                  {searching && (
+                    <span style={{position:'absolute',right:'12px',top:'50%',transform:'translateY(-50%)',
+                      fontFamily:'IBM Plex Mono',fontSize:'11px',color:'var(--gold)',animation:'blink 1s infinite'}}>
+                      ◆
+                    </span>
+                  )}
+                </div>
+
+                {!search.trim() && (
+                  <div style={{fontSize:'12px',color:'var(--muted)', padding:'20px 0', textAlign:'center'}}>
+                    Search any Indian stock by company name or ticker symbol to add it to your portfolio.
+                  </div>
+                )}
+                
+                {search.trim() && !searching && results.length === 0 && !searchErr && (
+                  <div style={{fontSize:'10px',color:'var(--muted)',fontFamily:'IBM Plex Mono',
+                    letterSpacing:'1.5px',textTransform:'uppercase',padding:'6px 2px 4px'}}>
+                    ─ Search results
+                  </div>
+                )}
+                
+                {search.trim() && !searching && results.length > 0 && (
+                  <div style={{fontSize:'10px',color:'var(--muted)',fontFamily:'IBM Plex Mono',
+                    letterSpacing:'1.5px',textTransform:'uppercase',padding:'6px 2px 4px'}}>
+                    ─ {results.length} result{results.length !== 1 ? 's' : ''} from Yahoo Finance
+                  </div>
+                )}
+
+                {searchErr && !searching && (
+                  <div style={{fontSize:'12px',color:'var(--red)',background:'var(--red-dim)',
+                    border:'1px solid rgba(240,84,84,0.2)',borderRadius:'8px',padding:'9px 13px',marginBottom:'8px'}}>
+                    No results found for "{search}" on Yahoo Finance. Try a different name or symbol.
+                  </div>
+                )}
+
+                <div className="stock-list">
+                  {results.map(stock => (
+                    <div key={stock.symbol} className="stock-list-item" onClick={() => handleSelect(stock)}>
+                      <div className="stock-badge sm">{stock.ds.slice(0,5)}</div>
+                      <div className="sli-info">
+                        <div className="stock-name">{stock.ds}
+                          {stock.exchange && <span style={{fontSize:'9px',color:'var(--muted)',fontFamily:'IBM Plex Mono',marginLeft:'6px',background:'rgba(255,255,255,0.06)',padding:'1px 5px',borderRadius:'3px'}}>{stock.exchange}</span>}
+                        </div>
+                        <div className="stock-sub">{stock.name}{stock.sector && stock.sector !== 'Equity' ? ` · ${stock.sector}` : ''}</div>
+                      </div>
+                      <div className="sli-price">
+                        <div className="mono" style={{fontSize:'13px', color:'var(--muted)'}}>
+                          + Add
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="selected-stock">
+                  <div className="stock-badge lg">{sel.ds.slice(0,5)}</div>
+                  <div>
+                    <div className="stock-name">{sel.ds}
+                      {sel.exchange && <span style={{fontSize:'9px',color:'var(--muted)',fontFamily:'IBM Plex Mono',marginLeft:'8px',background:'rgba(255,255,255,0.06)',padding:'2px 6px',borderRadius:'3px'}}>{sel.exchange}</span>}
+                    </div>
+                    <div className="stock-sub">{sel.name}{sel.sector && sel.sector !== 'Equity' ? ` · ${sel.sector}` : ''}</div>
+                    {prices[sel.symbol] && prices[sel.symbol].price !== null && (
+                      <div className={`ltp-line ${prices[sel.symbol].pct >= 0 ? 'up' : 'dn'}`}>
+                        LTP {fmt(prices[sel.symbol].price)} ({fmtPct(prices[sel.symbol].pct)})
+                      </div>
+                    )}
+                  </div>
+                  {!preselect && (
+                    <button className="link-btn" onClick={() => { setSel(null); setPrice(''); setQty(''); setErr(''); }}>
+                      Change
+                    </button>
+                  )}
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Quantity (shares)</label>
+                    <input className="modal-input" type="number" min="1" step="1" placeholder="e.g. 10"
+                      value={qty} onChange={e => setQty(e.target.value)} autoFocus={!!preselect}/>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Buy Price (₹)</label>
+                    <input className="modal-input" type="number" step="0.05" min="0.01"
+                      placeholder={prices[sel.symbol] && prices[sel.symbol].price ? `LTP: ${fmt(prices[sel.symbol].price)}` : 'Enter price'}
+                      value={price} onChange={e => setPrice(e.target.value)}/>
+                  </div>
+                </div>
+                {qn > 0 && pn > 0 && (
+                  <>
+                    <div className="order-summary">
+                      <span style={{color:'var(--muted)',fontSize:'13px'}}>Total Investment</span>
+                      <span className="order-val">{fmtL(qn * pn)}</span>
+                    </div>
+                    {qn*pn > budget ? (
+                      <div className="budget-warn">⚠ Insufficient balance — need {fmtL(qn*pn)}, have {fmtL(budget)}</div>
+                    ) : (
+                      <div style={{display:'flex',justifyContent:'space-between',fontSize:'11px',color:'var(--muted)',fontFamily:'IBM Plex Mono',marginBottom:'4px',padding:'0 2px'}}>
+                        <span>Balance after buy</span><span className="up">{fmtL(budget - qn*pn)}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                {err && <div className="field-error">{err}</div>}
+                <button className="btn-primary full" onClick={handleBuy}>✓ Confirm Buy</button>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── SELL MODAL ─── */
+    function SellModal({ holding, prices, onClose, onSell, budget }) {
+      const ltp = prices[holding.symbol]?.price ?? holding.avgBuy;
+      const [qty, setQty] = useState('');
+      const [price, setPrice] = useState(ltp !== null ? ltp.toFixed(2) : '');
+      const [err, setErr] = useState('');
+
+      const qn = parseInt(qty)||0, pn = parseFloat(price)||0;
+      const rPnL = qn*(pn - holding.avgBuy);
+      const pnlPct = holding.avgBuy>0 ? (pn-holding.avgBuy)/holding.avgBuy*100 : 0;
+
+      const handleSell = () => {
+        if (!qn||qn<=0) return setErr('Enter a valid quantity.');
+        if (qn > holding.qty) return setErr(`You only hold ${holding.qty} shares.`);
+        if (!pn||pn<=0) return setErr('Enter a valid sell price.');
+        onSell({ holding, qty: qn, price: pn });
+        onClose();
+      };
+
+      return (
+        <div className="modal-overlay" onClick={onClose}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">Sell · {holding.ds}</div>
+              <button className="modal-close" onClick={onClose}>✕</button>
+            </div>
+            <div className="selected-stock" style={{marginBottom:'18px'}}>
+              <div className="stock-badge lg">{holding.ds.slice(0,4)}</div>
+              <div>
+                <div className="stock-name">{holding.ds} — {holding.name}</div>
+                <div className="stock-sub">You hold <strong style={{color:'var(--text)'}}>{holding.qty} shares</strong> · Avg cost {fmt(holding.avgBuy)}</div>
+                {prices[holding.symbol] && prices[holding.symbol].price !== null && <div className={`ltp-line ${prices[holding.symbol].pct>=0?'up':'dn'}`}>LTP {fmt(prices[holding.symbol].price)} ({fmtPct(prices[holding.symbol].pct)})</div>}
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group"><label className="form-label">Quantity to Sell</label>
+                <input className="modal-input" type="number" min="1" max={holding.qty} step="1" placeholder={`Max ${holding.qty}`} value={qty} onChange={e=>setQty(e.target.value)} autoFocus/>
+              </div>
+              <div className="form-group"><label className="form-label">Sell Price (₹)</label>
+                <input className="modal-input" type="number" step="0.05" min="0.01" value={price} onChange={e=>setPrice(e.target.value)}/>
+              </div>
+            </div>
+            {qn>0 && pn>0 && (
+              <div className="order-summary-sell">
+                <div className="os-row"><span className="os-label">Shares to sell</span><span className="os-val">{qn} of {holding.qty}</span></div>
+                <div className="os-row"><span className="os-label">Sale proceeds</span><span className="os-val">{fmtL(qn*pn)}</span></div>
+                <div className="os-row total"><span className="os-label">Realised P&amp;L</span><span className={`os-val ${rPnL>=0?'up':'dn'}`}>{sign(rPnL)}{fmt(rPnL)} ({fmtPct(pnlPct)})</span></div>
+                <div className="os-row"><span className="os-label">Balance after sell</span><span className="os-val up">{fmtL(budget + qn*pn)}</span></div>
+              </div>
+            )}
+            {err && <div className="field-error">{err}</div>}
+            <button className="btn-sell-confirm full" onClick={handleSell}>✓ Confirm Sell</button>
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── CONFIRM MODAL ─── */
+    function ConfirmModal({ message, onConfirm, onCancel }) {
+      return (
+        <div className="modal-overlay" onClick={onCancel}>
+          <div className="modal" style={{maxWidth:'380px'}} onClick={e=>e.stopPropagation()}>
+            <div className="modal-header"><div className="modal-title">Confirm</div><button className="modal-close" onClick={onCancel}>✕</button></div>
+            <p style={{fontSize:'14px',color:'var(--muted)',lineHeight:1.7,marginBottom:'24px'}}>{message}</p>
+            <div style={{display:'flex',gap:'10px'}}>
+              <button className="btn-sell-confirm" style={{flex:1,padding:'12px'}} onClick={onConfirm}>Yes, proceed</button>
+              <button onClick={onCancel} style={{flex:1,padding:'12px',background:'rgba(255,255,255,0.06)',color:'var(--text)',borderRadius:'8px',border:'1px solid var(--border)',fontSize:'13px',fontWeight:600}}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── APP ─── */
+    function App() {
+      const [view, setView]           = useState('dashboard');
+      const [holdings, setHoldings]   = useState(() => { try { return JSON.parse(localStorage.getItem('sf_h')||'[]'); } catch { return []; } });
+      const [txns, setTxns]           = useState(() => { try { return JSON.parse(localStorage.getItem('sf_t')||'[]'); } catch { return []; } });
+      const [budget, setBudget]       = useState(() => { try { return JSON.parse(localStorage.getItem('sf_budget') ?? '100000'); } catch { return 100000; } });
+      const [budgetLog, setBudgetLog] = useState(() => { try { return JSON.parse(localStorage.getItem('sf_budlog')||'[]'); } catch { return []; } });
+      const [prices, setPrices]       = useState({});
+      const [loaded, setLoaded]       = useState(false);
+      const [fetchErr, setFetchErr]   = useState(false);
+      const [liveCount, setLiveCount] = useState(0);
+      const [fetching, setFetching]   = useState(false);
+      const [lastUp, setLastUp]       = useState(null);
+      const [modal, setModal]         = useState(null);
+
+      useEffect(() => { localStorage.setItem('sf_h', JSON.stringify(holdings)); }, [holdings]);
+      useEffect(() => { localStorage.setItem('sf_t', JSON.stringify(txns)); }, [txns]);
+      useEffect(() => { localStorage.setItem('sf_budget', JSON.stringify(budget)); }, [budget]);
+      useEffect(() => { localStorage.setItem('sf_budlog', JSON.stringify(budgetLog)); }, [budgetLog]);
+
+      const loadPrices = useCallback(async () => {
+        setFetching(true);
+        const holdSyms = holdings.map(h=>h.symbol);
+        const all = [...new Set([...TICKER_SYMS, ...holdSyms])];
+        try {
+          const map = await fetchPrices(all);
+          const liveCount = map._liveCount || 0;
+          delete map._liveCount;
+          
+          if (Object.keys(map).length > 0) {
+            setPrices(map);
+            setLoaded(true);
+            setFetchErr(liveCount !== all.length);
+            setLiveCount(liveCount);
+            setLastUp(new Date());
+          } else {
+            setFetchErr(true);
+          }
+        } catch (e) { console.error(e); setFetchErr(true); }
+        setFetching(false);
+      }, [holdings]);
+
+      useEffect(() => { loadPrices(); const iv = setInterval(loadPrices, 300000); return ()=>clearInterval(iv); }, [loadPrices]);
+
+      const handleBuy = useCallback(({ symbol, ds, name, sector, qty, price }) => {
+        const total = qty * price;
+        setHoldings(prev => {
+          const idx = prev.findIndex(h=>h.symbol===symbol);
+          if (idx>=0) return prev.map((h,i) => i!==idx ? h : { ...h, qty: h.qty+qty, avgBuy: (h.qty*h.avgBuy + qty*price)/(h.qty+qty) });
+          return [...prev, { symbol, ds, name, sector, qty, avgBuy: price }];
+        });
+        setTxns(prev => [...prev, { id:uid(), type:'BUY', symbol, ds, name, qty, price, total, date: new Date().toISOString() }]);
+        setBudget(prev => {
+          const newBal = prev - total;
+          setBudgetLog(log => [...log, { type:'BUY', delta:-total, balance:newBal, desc:`Bought ${qty}× ${ds} @ ₹${price.toFixed(2)}`, date:new Date().toISOString() }]);
+          return newBal;
+        });
+      }, []);
+
+      const handleSell = useCallback(({ holding, qty, price }) => {
+        const rPnL = qty*(price - holding.avgBuy);
+        const proceeds = qty * price;
+        setHoldings(prev => prev.map(h=>h.symbol===holding.symbol ? {...h, qty:h.qty-qty} : h).filter(h=>h.qty>0));
+        setTxns(prev => [...prev, { id:uid(), type:'SELL', symbol:holding.symbol, ds:holding.ds, name:holding.name, qty, price, total:proceeds, rPnL, date: new Date().toISOString() }]);
+        setBudget(prev => {
+          const newBal = prev + proceeds;
+          setBudgetLog(log => [...log, { type:'SELL', delta:proceeds, balance:newBal, desc:`Sold ${qty}× ${holding.ds} @ ₹${price.toFixed(2)}`, date:new Date().toISOString() }]);
+          return newBal;
+        });
+      }, []);
+
+      const handleTopUp = useCallback((amount) => {
+        setBudget(prev => {
+          const newBal = prev + amount;
+          setBudgetLog(log => [...log, { type:'TOPUP', delta:amount, balance:newBal, desc:`Funds added to wallet`, date:new Date().toISOString() }]);
+          return newBal;
+        });
+      }, []);
+
+      const handleSetBalance = useCallback((amount) => {
+        setBudget(() => {
+          setBudgetLog(log => [...log, { type:'SET', delta:amount, balance:amount, desc:`Balance set manually to ${fmtL(amount)}`, date:new Date().toISOString() }]);
+          return amount;
+        });
+      }, []);
+
+      const clearTransactions = useCallback(() => {
+        setTxns([]); setModal(null);
+      }, []);
+
+      return (
+        <div className="app">
+          <TickerBar prices={prices} loading={fetching && !loaded} holdings={holdings} />
+          <NavBar view={view} setView={setView} onRefresh={loadPrices} lastUpdated={lastUp} loading={fetching} budget={budget}/>
+
+          {fetchErr && (
+            <div className="error-banner">
+              ⚠️ Live prices unavailable for some or all symbols. Showing '—' or 'ERR'.
+              <button onClick={loadPrices}>↻ Retry</button>
+              <span style={{fontSize:'11px',color:'rgba(240,84,84,0.5)'}}>Prices refresh automatically every 5 mins.</span>
+            </div>
+          )}
+          {loaded && !fetchErr && liveCount > 0 && (
+            <div className="info-bar">✦ Live NSE · {liveCount} symbols fetched · Custom Python Backend API · Auto-refreshes every 5 mins</div>
+          )}
+          {loaded && liveCount === 0 && (
+            <div className="info-bar" style={{color:'var(--gold)'}}>◆ API fetch failed. Retrying in background...</div>
+          )}
+
+          {view==='dashboard'    && <Dashboard    holdings={holdings} transactions={txns} prices={prices} pricesLoaded={loaded} onBuy={()=>setModal('buy')} setView={setView} budget={budget}/>}
+          {view==='holdings'     && <HoldingsView  holdings={holdings} prices={prices} pricesLoaded={loaded} onBuy={()=>setModal('buy')} onBuyMore={h=>setModal({type:'buyMore',h})} onSell={h=>setModal({type:'sell',h})}/>}
+          {view==='transactions' && <TransactionsView transactions={txns} onClear={()=>setModal({type:'clear'})}/>}
+          {view==='budget'       && <BudgetView budget={budget} budgetLog={budgetLog} onTopUp={handleTopUp} onSetBalance={handleSetBalance}/>}
+
+          {modal==='buy'            && <BuyModal  onClose={()=>setModal(null)} onBuy={handleBuy} prices={prices} budget={budget}/>}
+          {modal?.type==='buyMore'  && <BuyModal  onClose={()=>setModal(null)} onBuy={handleBuy} prices={prices} preselect={modal.h} budget={budget}/>}
+          {modal?.type==='sell'     && <SellModal holding={modal.h} prices={prices} onClose={()=>setModal(null)} onSell={handleSell} budget={budget}/>}
+          {modal?.type==='clear'    && <ConfirmModal message="This will permanently delete all transaction history. Your current holdings will remain intact." onConfirm={clearTransactions} onCancel={()=>setModal(null)}/>}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>
