@@ -1,69 +1,106 @@
-# Stockfolio — India Portfolio Tracker
+# Stockfolio — India Portfolio Tracker & Financial Literacy Platform
 
-Stockfolio is a lightweight, local client-server web application for tracking Indian stock portfolios (NSE/BSE). It features a responsive UI built with React and fetches live market data directly from Yahoo Finance.
+**Stockfolio** is a lightweight, local client-server web application designed to track Indian equity portfolios (NSE/BSE), simulate paper trading, and educate beginners on stock market investing and technical analysis.
 
-To bypass strict browser CORS restrictions and unreliable public proxy servers, this project pairs a single-file frontend with a tiny, local Python Flask server to securely route API requests.
+It combines an all-in-one React 18 single-page frontend with a local Python Flask backend that fetches real-time market data directly from Yahoo Finance without requiring paid API subscriptions or complex build tools.
+
+---
+
+## Key Features
+
+* **⚡ Real-Time NSE Market Feed**: Live price streaming and continuous ticker updates for Indian stocks (e.g., Reliance, TCS, HDFC Bank, Infosys).
+* **💾 Backend Portfolio Persistence**: Trades, cash balances, and transaction logs are stored permanently on disk in `portfolio.json` (with automatic browser `localStorage` offline backup).
+* **📊 Interactive Multi-Timeframe Charts**: Native SVG price charts with hover crosshairs, period statistics, and timeframe switching:
+  * **1 Day (`1d`)** — 5-minute interval candles
+  * **1 Week (`1w`)** — 15-minute interval candles
+  * **1 Year (`1y`)** — Daily candles
+* **📈 Technical Indicators Engine**:
+  * **50-Day & 200-Day SMA**: Rolling trend averages overlaid on 1-Year charts.
+  * **Golden Cross & Death Cross**: Automated detection and tagging of major bullish and bearish momentum breakouts.
+  * **Relative Strength Index (RSI - 14D)**: Wilder's smoothed momentum oscillator identifying overbought ($>70$) and oversold ($<30$) conditions.
+* **📘 Stockfolio Academy ("Learn" Tab)**: A dedicated educational view explaining technical indicators, market psychology, and beginner investing rules with simple real-world analogies.
+* **🎯 Smart Order Execution**: Selecting any stock in the **Buy** modal automatically fetches and fills its current market price (LTP) while keeping the price field fully editable.
+* **💼 Wallet & Budget Management**: Deposit virtual funds, manually set balances, and inspect complete audit ledgers of deposits, purchases, and sales.
 
 ---
 
 ## Project Structure
 
-The entire application runs on just two files:
-
-- `stockfolio.html` — The Frontend. This file contains the React application, CSS styling, and UI logic packed into a single document. It stores all portfolio data locally in your browser.
-- `server.py` — The Backend. A lightweight Flask server that acts as a secure bridge, fetching live ticker data and search results directly from the Yahoo Finance API.
+```
+stockfolio/
+├── stockfolio.html                    # Frontend SPA (React 18, Babel, SVG Charts, Learn View)
+├── server.py                          # Backend REST API (Flask, Yahoo Finance Proxy, JSON Storage)
+├── portfolio.json                     # Persistent database for cash, holdings, and trade history
+├── ARCHITECTURE.md                    # In-depth technical architecture and system blueprint
+├── PROJECT_REVIEW_2.md                # Academic review presentation script & documentation
+├── Mini_Project_Review_2_Stockfolio.pptx # PowerPoint presentation deck for Project Review 2
+└── README.md                          # Quickstart guide and project overview
+```
 
 ---
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed on your machine:
-
-- **Python 3.x** (Download from [python.org](https://www.python.org/downloads/))
-- A modern web browser (Chrome, Firefox, Safari, Edge)
+* **Python 3.8+** (Download from [python.org](https://www.python.org/downloads/))
+* A modern web browser (Google Chrome, Mozilla Firefox, Microsoft Edge, Brave, or Safari)
 
 ---
 
 ## Installation & Setup
 
 ### Step 1: Install Backend Dependencies
-The Python server requires three basic libraries to run: `flask` (the web framework), `flask-cors` (to allow your browser to talk to the server), and `requests` (to fetch data from Yahoo).
 
-Open your terminal, navigate to the folder containing your files, and run:
+The Python server requires three lightweight packages:
 ```bash
 pip install flask flask-cors requests
 ```
 
 ### Step 2: Start the Backend Server
 
-The frontend relies entirely on the backend to fetch live prices and search queries. You must start the server before opening the app.
-
-In your terminal, run:
-
+The backend serves as a CORS-compliant bridge to Yahoo Finance and manages disk persistence for your portfolio:
 ```bash
-python server.py
+python3 server.py
+```
+You will see confirmation that the server is active on `http://localhost:3000`. Keep this terminal window open in the background.
+
+### Step 3: Open the Application
+
+Because the React application compiles in-browser via Babel standalone, no build step or web server is required for the frontend.
+
+Simply double-click [`stockfolio.html`](file:///home/aryan/src/stockfolio/stockfolio.html) or open it directly in your browser.
+
+---
+
+## How It Works (Architecture Overview)
+
+```
+┌────────────────────────────────┐         ┌─────────────────────────────────┐
+│   stockfolio.html (Browser)    │ ◄─────► │     server.py (Port 3000)       │
+│  - React 18 UI & State         │  REST   │  - Flask CORS Proxy Bridge      │
+│  - SVG Charting Engine         │  JSON   │  - /api/prices, /api/chart      │
+│  - Technical Indicator Math    │         │  - Portfolio CRUD & Storage     │
+└────────────────────────────────┘         └───────┬─────────────────┬───────┘
+                                                   │                 │
+                                                   ▼                 ▼
+                                    ┌──────────────────────┐ ┌──────────────┐
+                                    │ Yahoo Finance Cloud  │ │portfolio.json│
+                                    │ (v8 Chart & Search)  │ │(Local Disk)  │
+                                    └──────────────────────┘ └──────────────┘
 ```
 
-You should see a message confirming the server is running on http://localhost:3000. Keep this terminal window open and running in the background while you use the app!
+1. **CORS Bypassing**: Web browsers restrict client-side scripts from querying external APIs like Yahoo Finance. `server.py` acts as a secure local proxy, fetching quotes on behalf of the browser without CORS restrictions.
+2. **Persistent Storage**: All buy/sell orders, top-ups, and balance adjustments are dispatched to `/api/portfolio/*` endpoints and committed to [`portfolio.json`](file:///home/aryan/src/stockfolio/portfolio.json) on disk.
+3. **Indicator Calculation**: Historical price points retrieved via `/api/chart` are processed client-side using rolling window vector math for moving averages and RSI.
 
-### Step 3: Open the Frontend App
+For a deeper dive, read the full [`ARCHITECTURE.md`](file:///home/aryan/src/stockfolio/ARCHITECTURE.md).
 
-Because the backend is handling all the complex network requests, the frontend does not need to be hosted on a web server to work locally.
-
-Simply double-click the stockfolio.html file to open it in your default web browser. (Alternatively, you can drag and drop the file into an open browser tab).
-
-## How It Works (The Architecture)
-
-- The UI Request: stockfolio.html runs locally in your browser. When it needs live prices or wants to search for a stock, it sends a local HTTP request to your Python server running on port 3000.
-- The CORS Bypass: server.py receives the request. Because it is a standalone Python script and not a web browser, it is not bound by CORS security rules. It safely queries Yahoo Finance's v8/spark and v1/search endpoints directly.
-- The Data Delivery: Yahoo Finance sends the live data back to the Python server, which immediately parses it and forwards it to your React UI to be displayed.
-- Data Persistence: All portfolio data (your specific holdings, transaction history, and budget) is saved securely in your browser's localStorage. It will persist automatically even if you close the tab or restart your computer.
+---
 
 ## Troubleshooting
 
-- The app is stuck on "Loading Stockfolio...": This usually means there is a syntax error in the HTML file preventing the React compiler (Babel) from running. Open your browser's Developer Tools (Right Click > Inspect > Console) to look for JavaScript syntax errors.
-- The ticker says "ERR" or prices won't load: Ensure that your terminal running server.py is open and active. If the terminal is closed or crashed, the app loses its connection to the live data feed.
-- Search returns no results: Ensure you are searching for valid Indian companies. The backend API is specifically tuned to filter for .NS (NSE) and .BO (BSE) suffixes on Yahoo Finance.
-- Address already in use error: If Python complains that port 3000 is in use, another app is using it. You can change port=3000 to port=5000 at the very bottom of server.py, and then update the http://localhost:3000 API links inside stockfolio.html to match.
-
-
+* **Page displays "Loading Stockfolio…":**
+  Ensure you are opening [`stockfolio.html`](file:///home/aryan/src/stockfolio/stockfolio.html) in a modern browser with JavaScript enabled. Check the browser console (`F12` $\to$ Console) if any extensions are blocking scripts.
+* **Ticker shows "ERR" or prices won't load:**
+  Verify that `server.py` is actively running on `http://localhost:3000`. If closed, restart it in your terminal (`python3 server.py`).
+* **Port 3000 in use:**
+  If another process is using port 3000, modify `port=3000` at the bottom of [`server.py`](file:///home/aryan/src/stockfolio/server.py) and update the corresponding `localhost:3000` URLs in [`stockfolio.html`](file:///home/aryan/src/stockfolio/stockfolio.html).

@@ -131,6 +131,35 @@
     .btn-sell-row:hover { background: var(--red-dim); border-color: var(--red); }
     .btn-buy-more { background: transparent; color: var(--green); border: 1px solid rgba(61,220,132,0.3); padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; transition: all .2s; margin-right: 6px; }
     .btn-buy-more:hover { background: var(--green-dim); border-color: var(--green); }
+    .btn-chart-row { background: transparent; color: var(--gold); border: 1px solid rgba(212,168,71,0.3); padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; transition: all .2s; margin-right: 6px; }
+    .btn-chart-row:hover { background: var(--gold-dim); border-color: var(--gold); }
+    .chart-modal { width: 100%; max-width: 720px; }
+    .range-tabs { display: flex; gap: 6px; background: rgba(255,255,255,0.03); padding: 4px; border-radius: 8px; border: 1px solid var(--border); }
+    .range-tab { background: transparent; color: var(--muted); padding: 6px 14px; border-radius: 6px; font-size: 11px; font-family: 'IBM Plex Mono', monospace; font-weight: 600; transition: all .15s; border: none; cursor: pointer; }
+    .range-tab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .range-tab.active { background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(212,168,71,0.3); }
+    .chart-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
+    .chart-stat-box { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+    .chart-stat-box-label { font-size: 9px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+    .chart-stat-box-val { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; }
+    .chart-container { position: relative; width: 100%; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; padding: 14px 10px 10px; margin-top: 14px; }
+    .chart-hover-info { min-height: 24px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+    .clickable-stock { cursor: pointer; transition: opacity .15s; }
+    .clickable-stock:hover { opacity: 0.8; }
+    .indicator-tag { display: inline-flex; align-items: center; gap: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.5px; }
+    .indicator-tag.golden { background: rgba(240,201,106,0.15); color: #f0c96a; border: 1px solid rgba(240,201,106,0.3); }
+    .indicator-tag.death { background: rgba(240,84,84,0.15); color: #f05454; border: 1px solid rgba(240,84,84,0.3); }
+    .indicator-tag.neutral { background: rgba(255,255,255,0.06); color: var(--muted); border: 1px solid var(--border); }
+    .indicator-panel { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-top: 12px; }
+    .learn-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin-top: 24px; }
+    .learn-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 26px; display: flex; flex-direction: column; justify-content: space-between; transition: all .2s; }
+    .learn-card:hover { border-color: rgba(212,168,71,0.3); transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,0.3); }
+    .learn-tag { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
+    .learn-title { font-family: 'DM Serif Display', serif; font-size: 24px; color: #fff; margin-bottom: 12px; }
+    .learn-desc { font-size: 14px; color: #b8b8cc; line-height: 1.7; margin-bottom: 16px; }
+    .learn-analogy { background: rgba(212,168,71,0.08); border-left: 3px solid var(--gold); padding: 12px 14px; border-radius: 0 8px 8px 0; font-size: 13px; color: #e0d0b0; line-height: 1.6; margin-bottom: 16px; }
+    .learn-signals { display: flex; flex-direction: column; gap: 8px; font-size: 12px; font-family: 'IBM Plex Mono', monospace; }
+    .learn-sig-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-radius: 6px; background: rgba(255,255,255,0.03); }
     .link-btn { background: transparent; color: var(--gold); border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: color .2s; }
     .link-btn:hover { color: var(--gold-light); }
 
@@ -331,6 +360,598 @@
       return results;
     }
 
+    /* ─── CHART API ─── */
+    async function fetchChartData(symbol, range = '1d') {
+      const url = `http://localhost:3000/api/chart?symbol=${encodeURIComponent(symbol)}&range=${range}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Network error fetching chart data');
+      const json = await res.json();
+      const chartRes = json?.chart?.result?.[0];
+      if (!chartRes) throw new Error('No chart data returned from Yahoo Finance');
+      
+      const timestamps = chartRes.timestamp || [];
+      const quotes = chartRes.indicators?.quote?.[0]?.close || [];
+      const points = [];
+      
+      for (let i = 0; i < timestamps.length; i++) {
+        const val = quotes[i];
+        if (val !== null && val !== undefined && !isNaN(val)) {
+          points.push({
+            time: timestamps[i] * 1000,
+            price: Number(val)
+          });
+        }
+      }
+      
+      const meta = chartRes.meta || {};
+      return { points, meta };
+    }
+
+    const fmtChartTime = (timeMs, range) => {
+      const d = new Date(timeMs);
+      if (range === '1d') {
+        return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+      }
+      if (range === '1w') {
+        return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' +
+               d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+      }
+      return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    };
+
+    /* ─── TECHNICAL INDICATORS HELPERS ─── */
+    function calculateSMA(points, period) {
+      if (!points || points.length < period) return [];
+      const result = [];
+      let sum = 0;
+      for (let i = 0; i < points.length; i++) {
+        sum += points[i].price;
+        if (i >= period) {
+          sum -= points[i - period].price;
+        }
+        if (i >= period - 1) {
+          result.push(Number((sum / period).toFixed(2)));
+        } else {
+          result.push(null);
+        }
+      }
+      return result;
+    }
+
+    function calculateRSI(points, period = 14) {
+      if (!points || points.length <= period) return null;
+      let gains = 0;
+      let losses = 0;
+      for (let i = 1; i <= period; i++) {
+        const diff = points[i].price - points[i - 1].price;
+        if (diff >= 0) gains += diff;
+        else losses += Math.abs(diff);
+      }
+      let avgGain = gains / period;
+      let avgLoss = losses / period;
+
+      for (let i = period + 1; i < points.length; i++) {
+        const diff = points[i].price - points[i - 1].price;
+        const currentGain = diff > 0 ? diff : 0;
+        const currentLoss = diff < 0 ? Math.abs(diff) : 0;
+        avgGain = (avgGain * (period - 1) + currentGain) / period;
+        avgLoss = (avgLoss * (period - 1) + currentLoss) / period;
+      }
+
+      if (avgLoss === 0) return 100;
+      const rs = avgGain / avgLoss;
+      return Math.round((100 - (100 / (1 + rs))) * 10) / 10;
+    }
+
+    function detectCrossovers(points, sma50, sma200) {
+      if (!points || !sma50 || !sma200) return null;
+      let latestCross = null;
+      for (let i = 1; i < points.length; i++) {
+        const prev50 = sma50[i - 1];
+        const prev200 = sma200[i - 1];
+        const curr50 = sma50[i];
+        const curr200 = sma200[i];
+        if (prev50 !== null && prev200 !== null && curr50 !== null && curr200 !== null) {
+          if (prev50 <= prev200 && curr50 > curr200) {
+            latestCross = { type: 'GOLDEN', index: i, time: points[i].time, price: points[i].price };
+          } else if (prev50 >= prev200 && curr50 < curr200) {
+            latestCross = { type: 'DEATH', index: i, time: points[i].time, price: points[i].price };
+          }
+        }
+      }
+      const last50 = sma50.length ? sma50[sma50.length - 1] : null;
+      const last200 = sma200.length ? sma200[sma200.length - 1] : null;
+      const currentState = (last50 !== null && last200 !== null) ? (last50 >= last200 ? 'BULLISH' : 'BEARISH') : 'NEUTRAL';
+      return { latestCross, currentState, last50, last200 };
+    }
+
+    /* ─── STOCK CHART COMPONENT ─── */
+    function StockChart({ points, range, showSMA }) {
+      const [hoverIdx, setHoverIdx] = useState(null);
+
+      if (!points || points.length === 0) {
+        return (
+          <div style={{height:'240px',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--muted)',fontFamily:'IBM Plex Mono',fontSize:'12px'}}>
+            No price history available for this period.
+          </div>
+        );
+      }
+
+      const startPrice = points[0].price;
+      const endPrice = points[points.length - 1].price;
+      const periodDiff = endPrice - startPrice;
+      const periodPct = startPrice ? (periodDiff / startPrice) * 100 : 0;
+      const isUp = periodDiff >= 0;
+
+      const strokeColor = isUp ? '#3ddc84' : '#f05454';
+      const gradientId = isUp ? 'chartGradUp' : 'chartGradDn';
+
+      // Technical Indicators for 1Y
+      const sma50 = range === '1y' ? calculateSMA(points, 50) : [];
+      const sma200 = range === '1y' ? calculateSMA(points, 200) : [];
+
+      const pricesArr = points.map(p => p.price);
+      let minP = Math.min(...pricesArr);
+      let maxP = Math.max(...pricesArr);
+      if (minP === maxP) {
+        minP *= 0.99;
+        maxP *= 1.01;
+      }
+      const pSpread = maxP - minP;
+      const yMin = minP - pSpread * 0.05;
+      const yMax = maxP + pSpread * 0.05;
+      const ySpread = yMax - yMin;
+
+      const W = 700;
+      const H = 250;
+      const padL = 60;
+      const padR = 20;
+      const padT = 15;
+      const padB = 28;
+      const plotW = W - padL - padR;
+      const plotH = H - padT - padB;
+
+      const mapped = points.map((p, i) => {
+        const x = padL + (points.length > 1 ? (i / (points.length - 1)) * plotW : plotW / 2);
+        const y = padT + plotH - ((p.price - yMin) / ySpread) * plotH;
+        return { ...p, x, y };
+      });
+
+      const dLine = 'M ' + mapped.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ');
+      const dArea = `${dLine} L ${(padL + plotW).toFixed(1)},${(padT + plotH).toFixed(1)} L ${padL.toFixed(1)},${(padT + plotH).toFixed(1)} Z`;
+
+      // Build SMA SVG paths
+      let dSMA50 = '';
+      let dSMA200 = '';
+      if (range === '1y' && showSMA) {
+        const pts50 = [];
+        const pts200 = [];
+        for (let i = 0; i < points.length; i++) {
+          const x = padL + (i / (points.length - 1)) * plotW;
+          if (sma50[i] !== null) {
+            const y = padT + plotH - ((sma50[i] - yMin) / ySpread) * plotH;
+            pts50.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+          }
+          if (sma200[i] !== null) {
+            const y = padT + plotH - ((sma200[i] - yMin) / ySpread) * plotH;
+            pts200.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+          }
+        }
+        if (pts50.length > 0) dSMA50 = 'M ' + pts50.join(' L ');
+        if (pts200.length > 0) dSMA200 = 'M ' + pts200.join(' L ');
+      }
+
+      const activePoint = hoverIdx !== null && mapped[hoverIdx] ? mapped[hoverIdx] : mapped[mapped.length - 1];
+      const activeDiff = activePoint.price - startPrice;
+      const activePct = startPrice ? (activeDiff / startPrice) * 100 : 0;
+      const hoverSMA50 = hoverIdx !== null && sma50[hoverIdx] !== null ? sma50[hoverIdx] : null;
+      const hoverSMA200 = hoverIdx !== null && sma200[hoverIdx] !== null ? sma200[hoverIdx] : null;
+
+      const handleMouseMove = (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const clientX = e.clientX - rect.left;
+        const ratio = (clientX - (padL / W) * rect.width) / ((plotW / W) * rect.width);
+        const clampedRatio = Math.max(0, Math.min(1, ratio));
+        const idx = Math.round(clampedRatio * (mapped.length - 1));
+        setHoverIdx(idx);
+      };
+
+      const handleMouseLeave = () => {
+        setHoverIdx(null);
+      };
+
+      // Y-axis grid markers (4 levels)
+      const yGridTicks = [0, 0.33, 0.66, 1].map(r => yMin + r * ySpread);
+
+      // X-axis time marks (4 ticks)
+      const xIndices = [0, Math.floor(mapped.length * 0.33), Math.floor(mapped.length * 0.66), mapped.length - 1];
+
+      return (
+        <div>
+          <div className="chart-hover-info">
+            <div>
+              <span style={{color:'var(--muted)',marginRight:'6px'}}>Time:</span>
+              <span style={{color:'var(--text)',fontWeight:600}}>{fmtChartTime(activePoint.time, range)}</span>
+              {showSMA && hoverSMA50 !== null && (
+                <span style={{marginLeft:'10px',color:'#f0c96a',fontSize:'11px'}}>SMA50: {fmt(hoverSMA50)}</span>
+              )}
+              {showSMA && hoverSMA200 !== null && (
+                <span style={{marginLeft:'8px',color:'#64b5f6',fontSize:'11px'}}>SMA200: {fmt(hoverSMA200)}</span>
+              )}
+            </div>
+            <div>
+              <span style={{color:'var(--muted)',marginRight:'6px'}}>Price:</span>
+              <span style={{color:'var(--text)',fontWeight:700,fontSize:'14px',marginRight:'8px'}}>{fmt(activePoint.price)}</span>
+              <span className={activeDiff >= 0 ? 'up' : 'dn'}>
+                {sign(activeDiff)}{fmt(activeDiff)} ({fmtPct(activePct)})
+              </span>
+            </div>
+          </div>
+
+          <div
+            className="chart-container"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            style={{cursor:'crosshair'}}
+          >
+            <svg
+              viewBox={`0 0 ${W} ${H}`}
+              style={{width:'100%',height:'auto',display:'block',overflow:'visible'}}
+            >
+              <defs>
+                <linearGradient id="chartGradUp" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3ddc84" stopOpacity="0.28" />
+                  <stop offset="100%" stopColor="#3ddc84" stopOpacity="0.0" />
+                </linearGradient>
+                <linearGradient id="chartGradDn" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f05454" stopOpacity="0.28" />
+                  <stop offset="100%" stopColor="#f05454" stopOpacity="0.0" />
+                </linearGradient>
+              </defs>
+
+              {/* Horizontal grid lines and Y-axis labels */}
+              {yGridTicks.map((priceVal, idx) => {
+                const yPos = padT + plotH - ((priceVal - yMin) / ySpread) * plotH;
+                return (
+                  <g key={idx}>
+                    <line
+                      x1={padL}
+                      y1={yPos}
+                      x2={padL + plotW}
+                      y2={yPos}
+                      stroke="rgba(255,255,255,0.06)"
+                      strokeDasharray="4 4"
+                    />
+                    <text
+                      x={padL - 8}
+                      y={yPos + 3}
+                      fill="var(--muted)"
+                      fontSize="9"
+                      fontFamily="'IBM Plex Mono', monospace"
+                      textAnchor="end"
+                    >
+                      {priceVal >= 1000 ? Math.round(priceVal) : priceVal.toFixed(1)}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Area fill */}
+              <path d={dArea} fill={`url(#${gradientId})`} />
+
+              {/* Line stroke */}
+              <path
+                d={dLine}
+                fill="none"
+                stroke={strokeColor}
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+
+              {/* 50-Day SMA Line */}
+              {showSMA && dSMA50 && (
+                <path
+                  d={dSMA50}
+                  fill="none"
+                  stroke="#f0c96a"
+                  strokeWidth="1.8"
+                  strokeDasharray="5 3"
+                />
+              )}
+
+              {/* 200-Day SMA Line */}
+              {showSMA && dSMA200 && (
+                <path
+                  d={dSMA200}
+                  fill="none"
+                  stroke="#64b5f6"
+                  strokeWidth="1.8"
+                />
+              )}
+
+              {/* X-axis time labels */}
+              {xIndices.map((ptIdx, i) => {
+                const pt = mapped[ptIdx];
+                if (!pt) return null;
+                const anchor = i === 0 ? 'start' : (i === xIndices.length - 1 ? 'end' : 'middle');
+                let labelText = '';
+                const d = new Date(pt.time);
+                if (range === '1d') {
+                  labelText = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+                } else if (range === '1w') {
+                  labelText = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' });
+                } else {
+                  labelText = d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+                }
+
+                return (
+                  <text
+                    key={i}
+                    x={pt.x}
+                    y={padT + plotH + 18}
+                    fill="var(--muted)"
+                    fontSize="9"
+                    fontFamily="'IBM Plex Mono', monospace"
+                    textAnchor={anchor}
+                  >
+                    {labelText}
+                  </text>
+                );
+              })}
+
+              {/* Hover guide & point */}
+              {hoverIdx !== null && activePoint && (
+                <g>
+                  <line
+                    x1={activePoint.x}
+                    y1={padT}
+                    x2={activePoint.x}
+                    y2={padT + plotH}
+                    stroke="rgba(255,255,255,0.25)"
+                    strokeDasharray="3 3"
+                  />
+                  <circle
+                    cx={activePoint.x}
+                    cy={activePoint.y}
+                    r="5"
+                    fill={strokeColor}
+                    stroke="#07080d"
+                    strokeWidth="2"
+                  />
+                  <circle
+                    cx={activePoint.x}
+                    cy={activePoint.y}
+                    r="9"
+                    fill="none"
+                    stroke={strokeColor}
+                    strokeOpacity="0.4"
+                    strokeWidth="1.5"
+                  />
+                </g>
+              )}
+            </svg>
+          </div>
+
+          {/* Chart Legend */}
+          {range === '1y' && showSMA && (
+            <div style={{display:'flex',gap:'16px',justifyContent:'center',alignItems:'center',marginTop:'10px',fontSize:'11px',fontFamily:'IBM Plex Mono'}}>
+              <span style={{color:strokeColor}}>— Price Line</span>
+              <span style={{color:'#f0c96a'}}>--- 50-Day SMA</span>
+              <span style={{color:'#64b5f6'}}>— 200-Day SMA</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ─── STOCK CHART MODAL ─── */
+    function StockChartModal({ stock, prices, onClose, onNavigateLearn }) {
+      const [range, setRange] = useState('1d'); // '1d', '1w', '1y'
+      const [showSMA, setShowSMA] = useState(true);
+      const [chartData, setChartData] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+
+      const loadChart = useCallback(async (r) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const data = await fetchChartData(stock.symbol, r);
+          setChartData(data);
+        } catch (err) {
+          console.error('Failed to load chart:', err);
+          setError(err?.message || 'Failed to load chart');
+        } finally {
+          setLoading(false);
+        }
+      }, [stock.symbol]);
+
+      useEffect(() => {
+        loadChart(range);
+      }, [range, loadChart]);
+
+      const livePriceInfo = prices[stock.symbol] || null;
+      const points = chartData?.points || [];
+
+      let highPrice = null;
+      let lowPrice = null;
+      let startPrice = null;
+      let endPrice = null;
+      let periodChange = null;
+      let periodChangePct = null;
+
+      if (points.length > 0) {
+        startPrice = points[0].price;
+        endPrice = points[points.length - 1].price;
+        highPrice = Math.max(...points.map(p => p.price));
+        lowPrice = Math.min(...points.map(p => p.price));
+        periodChange = endPrice - startPrice;
+        periodChangePct = startPrice ? (periodChange / startPrice) * 100 : 0;
+      }
+
+      // Technical Indicators for 1Y
+      const sma50 = range === '1y' ? calculateSMA(points, 50) : [];
+      const sma200 = range === '1y' ? calculateSMA(points, 200) : [];
+      const rsi = range === '1y' ? calculateRSI(points, 14) : null;
+      const crossovers = range === '1y' ? detectCrossovers(points, sma50, sma200) : null;
+
+      return (
+        <div className="modal-overlay" onClick={onClose}>
+          <div className="modal chart-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+                <div className="stock-badge lg">{stock.ds ? stock.ds.slice(0, 4) : stock.symbol.slice(0, 4)}</div>
+                <div>
+                  <div className="modal-title" style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                    {stock.ds || stock.symbol}
+                    {stock.exchange && (
+                      <span style={{fontSize:'10px',color:'var(--muted)',fontFamily:'IBM Plex Mono',background:'rgba(255,255,255,0.06)',padding:'2px 7px',borderRadius:'4px'}}>
+                        {stock.exchange}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{fontSize:'12px',color:'var(--muted)',marginTop:'2px'}}>{stock.name || stock.symbol}</div>
+                </div>
+              </div>
+              <button className="modal-close" onClick={onClose}>✕</button>
+            </div>
+
+            {/* Price & Range selector row */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:'14px',flexWrap:'wrap',gap:'12px'}}>
+              <div>
+                <div style={{fontSize:'9px',fontFamily:'IBM Plex Mono',color:'var(--muted)',letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:'4px'}}>Current Market Price</div>
+                <div style={{display:'flex',alignItems:'baseline',gap:'10px'}}>
+                  <span style={{fontFamily:'DM Serif Display',fontSize:'28px',color:'#fff'}}>
+                    {livePriceInfo && livePriceInfo.price !== null ? fmt(livePriceInfo.price) : (endPrice !== null ? fmt(endPrice) : '—')}
+                  </span>
+                  {livePriceInfo && livePriceInfo.pct !== null && (
+                    <span className={`mono ${livePriceInfo.pct >= 0 ? 'up' : 'dn'}`} style={{fontSize:'13px',fontWeight:600}}>
+                      {fmtPct(livePriceInfo.pct)}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Time Range Tabs */}
+              <div className="range-tabs">
+                {[
+                  { id: '1d', label: '1 Day' },
+                  { id: '1w', label: '1 Week' },
+                  { id: '1y', label: '1 Year' }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    className={`range-tab ${range === tab.id ? 'active' : ''}`}
+                    onClick={() => setRange(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Period Statistics Grid */}
+            <div className="chart-stats-grid">
+              <div className="chart-stat-box">
+                <div className="chart-stat-box-label">Period Open</div>
+                <div className="chart-stat-box-val">{startPrice !== null ? fmt(startPrice) : '—'}</div>
+              </div>
+              <div className="chart-stat-box">
+                <div className="chart-stat-box-label">Period High</div>
+                <div className="chart-stat-box-val">{highPrice !== null ? fmt(highPrice) : '—'}</div>
+              </div>
+              <div className="chart-stat-box">
+                <div className="chart-stat-box-label">Period Low</div>
+                <div className="chart-stat-box-val">{lowPrice !== null ? fmt(lowPrice) : '—'}</div>
+              </div>
+              <div className="chart-stat-box">
+                <div className="chart-stat-box-label">Period Return</div>
+                <div className={`chart-stat-box-val ${periodChange !== null ? (periodChange >= 0 ? 'up' : 'dn') : ''}`}>
+                  {periodChange !== null ? `${sign(periodChange)}${fmt(periodChange)} (${fmtPct(periodChangePct)})` : '—'}
+                </div>
+              </div>
+            </div>
+
+            {/* Technical Indicators Panel for 1Y */}
+            {range === '1y' && !loading && !error && points.length > 50 && (
+              <div className="indicator-panel">
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'10px',marginBottom:'8px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                    <span style={{fontFamily:'IBM Plex Mono',fontSize:'10px',color:'var(--gold)',letterSpacing:'1px',textTransform:'uppercase',fontWeight:600}}>
+                      ⚡ Technical Indicators (1Y)
+                    </span>
+                    {crossovers?.latestCross?.type === 'GOLDEN' && (
+                      <span className="indicator-tag golden">🌟 Golden Cross</span>
+                    )}
+                    {crossovers?.latestCross?.type === 'DEATH' && (
+                      <span className="indicator-tag death">⚠️ Death Cross</span>
+                    )}
+                    {!crossovers?.latestCross && crossovers?.currentState === 'BULLISH' && (
+                      <span className="indicator-tag golden">{"✦ 50-SMA > 200-SMA"}</span>
+                    )}
+                    {!crossovers?.latestCross && crossovers?.currentState === 'BEARISH' && (
+                      <span className="indicator-tag death">{"✦ 50-SMA < 200-SMA"}</span>
+                    )}
+                  </div>
+                  <label style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'11px',fontFamily:'IBM Plex Mono',color:'var(--muted)',cursor:'pointer'}}>
+                    <input type="checkbox" checked={showSMA} onChange={e => setShowSMA(e.target.checked)} />
+                    {"Show 50 & 200 SMA"}
+                  </label>
+                </div>
+
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'12px',fontSize:'12px',fontFamily:'IBM Plex Mono'}}>
+                  <div>
+                    <span style={{color:'var(--muted)',marginRight:'6px'}}>RSI (14D):</span>
+                    {rsi !== null ? (
+                      <span style={{fontWeight:600,color: rsi >= 70 ? 'var(--red)' : rsi <= 30 ? 'var(--green)' : 'var(--text)'}}>
+                        {rsi} {rsi >= 70 ? '· Overbought (>70)' : rsi <= 30 ? '· Oversold (<30)' : '· Normal (30-70)'}
+                      </span>
+                    ) : '—'}
+                  </div>
+                  {crossovers?.latestCross && (
+                    <div style={{color:'var(--muted)',fontSize:'11px'}}>
+                      Latest Crossover: <strong style={{color:'var(--text)'}}>{crossovers.latestCross.type === 'GOLDEN' ? 'Golden Cross' : 'Death Cross'}</strong> on {fmtChartTime(crossovers.latestCross.time, '1y')} @ {fmt(crossovers.latestCross.price)}
+                    </div>
+                  )}
+                  {onNavigateLearn && (
+                    <button
+                      className="link-btn"
+                      onClick={() => { onClose(); onNavigateLearn(); }}
+                      style={{fontSize:'11px',textDecoration:'underline'}}
+                    >
+                      📘 How to read these? (Learn Guide) →
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Chart Area */}
+            {loading && (
+              <div style={{height:'260px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'10px',background:'rgba(255,255,255,0.02)',borderRadius:'12px',border:'1px solid var(--border)'}}>
+                <div style={{fontFamily:'IBM Plex Mono',fontSize:'13px',color:'var(--gold)',animation:'blink 1.2s infinite'}}>
+                  ◆ Loading {range.toUpperCase()} chart data…
+                </div>
+              </div>
+            )}
+
+            {!loading && error && (
+              <div style={{height:'260px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'12px',background:'rgba(240,84,84,0.04)',borderRadius:'12px',border:'1px solid rgba(240,84,84,0.2)',padding:'20px',textAlign:'center'}}>
+                <div style={{fontSize:'13px',color:'var(--red)'}}>Failed to load stock chart data from backend.</div>
+                <div style={{fontSize:'11px',color:'var(--muted)',fontFamily:'IBM Plex Mono'}}>{error}</div>
+                <button className="btn-primary" style={{padding:'8px 18px',fontSize:'12px'}} onClick={() => loadChart(range)}>↻ Retry</button>
+              </div>
+            )}
+
+            {!loading && !error && (
+              <StockChart points={points} range={range} showSMA={showSMA} meta={chartData?.meta} />
+            )}
+          </div>
+        </div>
+      );
+    }
+
     /* ─── TICKER BAR ─── */
     function TickerBar({ prices, loading, holdings }) {
       const portfolioSyms = holdings ? holdings.map(h => h.symbol) : [];
@@ -369,9 +990,9 @@
         <nav>
           <div className="logo"><div className="logo-dot"/><span>Stockfolio</span></div>
           <div className="nav-links">
-            {['dashboard','holdings','transactions','budget'].map(v => (
+            {['dashboard','holdings','transactions','budget','learn'].map(v => (
               <button key={v} className={`nav-link${view===v?' active':''}`} onClick={() => setView(v)}>
-                {v[0].toUpperCase()+v.slice(1)}
+                {v === 'learn' ? '📘 Learn' : v[0].toUpperCase()+v.slice(1)}
               </button>
             ))}
           </div>
@@ -392,7 +1013,7 @@
     }
 
     /* ─── DASHBOARD ─── */
-    function Dashboard({ holdings, transactions, prices, pricesLoaded, onBuy, setView, budget }) {
+    function Dashboard({ holdings, transactions, prices, pricesLoaded, onBuy, setView, budget, onOpenChart }) {
       const totalInvested = holdings.reduce((a,h) => a + h.qty*h.avgBuy, 0);
       const currentValue  = holdings.reduce((a,h) => {
         const cp = prices[h.symbol]?.price;
@@ -464,9 +1085,14 @@
                   <tbody>
                     {top.map(h=>(
                       <tr key={h.symbol}>
-                        <td><div className="stock-cell">
+                        <td><div className="stock-cell clickable-stock" onClick={()=>onOpenChart(h)} title="Click to view price chart">
                           <div className="stock-badge">{h.ds.slice(0,4)}</div>
-                          <div><div className="stock-name">{h.ds}</div><div className="stock-sub">{h.name}</div></div>
+                          <div>
+                            <div className="stock-name" style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                              {h.ds} <span style={{fontSize:'10px',color:'var(--gold)'}}>📈</span>
+                            </div>
+                            <div className="stock-sub">{h.name}</div>
+                          </div>
                         </div></td>
                         <td className="right mono">{h.qty}</td>
                         <td className="right mono">{fmt(h.avgBuy)}</td>
@@ -492,7 +1118,7 @@
     }
 
     /* ─── HOLDINGS VIEW ─── */
-    function HoldingsView({ holdings, prices, pricesLoaded, onBuy, onBuyMore, onSell }) {
+    function HoldingsView({ holdings, prices, pricesLoaded, onBuy, onBuyMore, onSell, onOpenChart }) {
       const enriched = holdings.map(h => {
         const cp = prices[h.symbol]?.price ?? null;
         const cv = cp !== null ? h.qty * cp : null;
@@ -526,7 +1152,7 @@
                 <tbody>
                   {enriched.map(h=>(
                     <tr key={h.symbol}>
-                      <td><div className="stock-cell">
+                      <td><div className="stock-cell clickable-stock" onClick={()=>onOpenChart(h)} title="Click to view price chart">
                         <div className="stock-badge">{h.ds.slice(0,4)}</div>
                         <div><div className="stock-name">{h.ds}</div><div className="stock-sub">{h.name}</div><div className="stock-sector">{h.sector}</div></div>
                       </div></td>
@@ -539,6 +1165,7 @@
                       <td className={`right mono ${h.pnl>=0?'up':'dn'}`}>{pricesLoaded && h.pnl !== null ? sign(h.pnl)+fmt(h.pnl) : '—'}</td>
                       <td className={`right mono ${h.pnlPct>=0?'up':'dn'}`}>{pricesLoaded && h.pnlPct !== null ? fmtPct(h.pnlPct) : '—'}</td>
                       <td style={{whiteSpace:'nowrap'}}>
+                        <button className="btn-chart-row" onClick={()=>onOpenChart(h)} title="View price chart">Chart</button>
                         <button className="btn-buy-more" onClick={()=>onBuyMore(h)}>Buy+</button>
                         <button className="btn-sell-row" onClick={()=>onSell(h)}>Sell</button>
                       </td>
@@ -725,6 +1352,142 @@
       );
     }
 
+    /* ─── LEARN / INDICATORS VIEW ─── */
+    function LearnView({ setView }) {
+      return (
+        <div className="section">
+          <div className="section-header">
+            <div>
+              <div className="section-tag">// STOCKFOLIO ACADEMY · TECHNICAL ANALYSIS</div>
+              <h2>How to Read the Market</h2>
+            </div>
+            <button className="btn-primary" onClick={() => setView('dashboard')}>
+              Go to Dashboard →
+            </button>
+          </div>
+
+          <div style={{fontSize:'14px',color:'var(--muted)',maxWidth:'740px',lineHeight:1.7,marginBottom:'24px'}}>
+            Technical indicators analyze price and volume history to help investors spot momentum shifts, avoid emotional buying at market peaks, and identify high-probability entry points. Here is an easy guide to the indicators built into Stockfolio.
+          </div>
+
+          <div className="learn-grid">
+            {/* Card 1: Moving Averages */}
+            <div className="learn-card">
+              <div>
+                <div className="learn-tag" style={{color:'var(--gold)'}}>✦ TREND TRACKER</div>
+                <div className="learn-title">Simple Moving Averages (SMA)</div>
+                <div className="learn-desc">
+                  A Moving Average calculates the average closing price of a stock over a given number of days. It smooths out day-to-day noise so you can see the true direction of the trend.
+                </div>
+                <div className="learn-analogy">
+                  💡 <strong>Real-World Analogy:</strong> Think of the ocean tide. Individual waves crash up and down every few seconds (daily volatility), but a moving average shows you whether the overall <em>tide</em> is coming in or going out.
+                </div>
+                <div className="learn-signals">
+                  <div className="learn-sig-row">
+                    <span style={{color:'#f0c96a',fontWeight:600}}>● 50-Day SMA</span>
+                    <span style={{color:'var(--muted)'}}>Medium-term momentum baseline</span>
+                  </div>
+                  <div className="learn-sig-row">
+                    <span style={{color:'#64b5f6',fontWeight:600}}>● 200-Day SMA</span>
+                    <span style={{color:'var(--muted)'}}>Long-term institutional support</span>
+                  </div>
+                  <div className="learn-sig-row">
+                    <span className="up" style={{fontWeight:600}}>▲ Price above 200-SMA</span>
+                    <span style={{color:'var(--muted)'}}>Healthy bull market territory</span>
+                  </div>
+                  <div className="learn-sig-row">
+                    <span className="dn" style={{fontWeight:600}}>▼ Price below 200-SMA</span>
+                    <span style={{color:'var(--muted)'}}>Downtrend or bear market caution</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: Golden Cross & Death Cross */}
+            <div className="learn-card">
+              <div>
+                <div className="learn-tag" style={{color:'#3ddc84'}}>✦ MAJOR BREAKOUT SIGNALS</div>
+                <div className="learn-title">{"Golden Cross & Death Cross"}</div>
+                <div className="learn-desc">
+                  When the short-term 50-Day average intersects the long-term 200-Day average, it generates one of the most widely followed momentum signals in finance.
+                </div>
+                <div className="learn-signals" style={{marginBottom:'16px'}}>
+                  <div style={{background:'rgba(61,220,132,0.08)',border:'1px solid rgba(61,220,132,0.2)',borderRadius:'10px',padding:'12px'}}>
+                    <div style={{fontWeight:700,color:'var(--green)',fontSize:'13px',marginBottom:'4px'}}>🌟 The Golden Cross (Bullish Breakout)</div>
+                    <div style={{fontSize:'12px',color:'#c0e8d0',lineHeight:1.6}}>
+                      Occurs when the 50-SMA crosses <strong>above</strong> the 200-SMA. This signals that short-term buying pressure is overpowering long-term resistance, often kicking off an extended rally.
+                    </div>
+                  </div>
+                  <div style={{background:'rgba(240,84,84,0.08)',border:'1px solid rgba(240,84,84,0.2)',borderRadius:'10px',padding:'12px',marginTop:'8px'}}>
+                    <div style={{fontWeight:700,color:'var(--red)',fontSize:'13px',marginBottom:'4px'}}>⚠️ The Death Cross (Bearish Breakdown)</div>
+                    <div style={{fontSize:'12px',color:'#f8c0c0',lineHeight:1.6}}>
+                      Occurs when the 50-SMA crosses <strong>below</strong> the 200-SMA. This signals that selling pressure has taken over, warning investors of potential downward continuation.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3: RSI */}
+            <div className="learn-card">
+              <div>
+                <div className="learn-tag" style={{color:'#a78bfa'}}>✦ MOMENTUM SPEEDOMETER</div>
+                <div className="learn-title">Relative Strength Index (RSI - 14D)</div>
+                <div className="learn-desc">
+                  RSI measures the speed and magnitude of recent price moves on a scale from <strong>0 to 100</strong> to determine if a stock has moved too far, too fast.
+                </div>
+                <div className="learn-analogy">
+                  💡 <strong>Real-World Analogy:</strong> Think of a sprinter. If they sprint at maximum speed for too long {"(RSI > 70)"}, fatigue sets in and they must slow down. If they rest too long {"(RSI < 30)"}, they are primed to start running again.
+                </div>
+                <div className="learn-signals">
+                  <div className="learn-sig-row">
+                    <span className="dn" style={{fontWeight:700}}>{"Overbought (> 70)"}</span>
+                    <span style={{color:'var(--muted)'}}>Risen very fast · Risk of pullback</span>
+                  </div>
+                  <div className="learn-sig-row">
+                    <span style={{color:'var(--gold)',fontWeight:700}}>Neutral (30 – 70)</span>
+                    <span style={{color:'var(--muted)'}}>Healthy sustainable price action</span>
+                  </div>
+                  <div className="learn-sig-row">
+                    <span className="up" style={{fontWeight:700}}>{"Oversold (< 30)"}</span>
+                    <span style={{color:'var(--muted)'}}>Heavy selloff · Potential bargain rebound</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 4: Golden Rules for Beginners */}
+            <div className="learn-card" style={{gridColumn:'1 / -1',background:'linear-gradient(135deg, rgba(212,168,71,0.06) 0%, rgba(61,220,132,0.06) 100%)',borderColor:'rgba(212,168,71,0.25)'}}>
+              <div>
+                <div className="learn-tag" style={{color:'var(--gold)'}}>✦ INVESTOR'S RULEBOOK</div>
+                <div className="learn-title">The 3 Golden Rules of Technical Analysis</div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))',gap:'16px',marginTop:'14px'}}>
+                  <div style={{background:'rgba(255,255,255,0.03)',padding:'14px 16px',borderRadius:'10px',border:'1px solid var(--border)'}}>
+                    <div style={{fontWeight:700,color:'var(--gold)',fontSize:'13px',marginBottom:'6px'}}>1. Seek Confluence</div>
+                    <div style={{fontSize:'12px',color:'var(--muted)',lineHeight:1.6}}>
+                      Never rely on just one indicator. If a stock has a <strong>Golden Cross</strong> AND a healthy <strong>RSI around 50–60</strong>, multiple signals confirm the trend.
+                    </div>
+                  </div>
+                  <div style={{background:'rgba(255,255,255,0.03)',padding:'14px 16px',borderRadius:'10px',border:'1px solid var(--border)'}}>
+                    <div style={{fontWeight:700,color:'var(--green)',fontSize:'13px',marginBottom:'6px'}}>2. The Trend is Your Friend</div>
+                    <div style={{fontSize:'12px',color:'var(--muted)',lineHeight:1.6}}>
+                      Swimming with the current is much easier than against it. It is statistically safer to buy companies trading above their 200-day moving average.
+                    </div>
+                  </div>
+                  <div style={{background:'rgba(255,255,255,0.03)',padding:'14px 16px',borderRadius:'10px',border:'1px solid var(--border)'}}>
+                    <div style={{fontWeight:700,color:'#64b5f6',fontSize:'13px',marginBottom:'6px'}}>3. Fundamentals + Technicals</div>
+                    <div style={{fontSize:'12px',color:'var(--muted)',lineHeight:1.6}}>
+                      Use fundamental analysis (earnings, leadership, competitive moat) to decide <em>WHAT</em> to buy, and technical indicators to decide <em>WHEN</em> to buy.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     /* ─── BUY MODAL ─── */
     
     /* Request search data from local Python backend */
@@ -751,7 +1514,7 @@
       }
     }
 
-    function BuyModal({ onClose, onBuy, prices, preselect, budget }) {
+    function BuyModal({ onClose, onBuy, prices, setPrices, preselect, budget, onOpenChart }) {
       const [search, setSearch]       = useState('');
       const [sel, setSel]             = useState(preselect || null);
       const [qty, setQty]             = useState('');
@@ -765,7 +1528,17 @@
       useEffect(() => {
         if (preselect) {
           const ltp = prices[preselect.symbol]?.price;
-          if (ltp) setPrice(ltp.toFixed(2));
+          if (ltp != null) {
+            setPrice(ltp.toFixed(2));
+          } else {
+            fetchPrices([preselect.symbol]).then(res => {
+              const live = res[preselect.symbol];
+              if (live && live.price != null) {
+                setPrice(live.price.toFixed(2));
+                if (setPrices) setPrices(prev => ({ ...prev, [preselect.symbol]: live }));
+              }
+            }).catch(console.warn);
+          }
         }
       }, []);
 
@@ -789,11 +1562,30 @@
         return () => clearTimeout(debounceRef.current);
       }, [search]);
 
-      const handleSelect = (stock) => {
+      const handleSelect = async (stock) => {
         setSel(stock); setSearch(''); setResults([]); setSearchErr(false);
-        const ltp = prices[stock.symbol]?.price;
-        setPrice(ltp ? ltp.toFixed(2) : '');
         setErr('');
+
+        // If price is already cached, set it immediately
+        const ltp = prices[stock.symbol]?.price;
+        if (ltp != null) {
+          setPrice(ltp.toFixed(2));
+          return;
+        }
+
+        // Otherwise fetch live price on-the-fly for newly searched stocks
+        try {
+          const res = await fetchPrices([stock.symbol]);
+          const live = res[stock.symbol];
+          if (live && live.price != null) {
+            setPrice(live.price.toFixed(2));
+            if (setPrices) {
+              setPrices(prev => ({ ...prev, [stock.symbol]: live }));
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to fetch live price for selected stock:', e);
+        }
       };
 
       const qn = parseInt(qty) || 0, pn = parseFloat(price) || 0;
@@ -896,11 +1688,18 @@
                       </div>
                     )}
                   </div>
-                  {!preselect && (
-                    <button className="link-btn" onClick={() => { setSel(null); setPrice(''); setQty(''); setErr(''); }}>
-                      Change
-                    </button>
-                  )}
+                  <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                    {onOpenChart && (
+                      <button type="button" className="link-btn" onClick={() => onOpenChart(sel)} style={{display:'flex',alignItems:'center',gap:'4px'}}>
+                        📈 Chart
+                      </button>
+                    )}
+                    {!preselect && (
+                      <button className="link-btn" onClick={() => { setSel(null); setPrice(''); setQty(''); setErr(''); }}>
+                        Change
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
@@ -1026,7 +1825,53 @@
       const [fetching, setFetching]   = useState(false);
       const [lastUp, setLastUp]       = useState(null);
       const [modal, setModal]         = useState(null);
+      const [backendSaved, setBackendSaved] = useState(false);
 
+      const applyPortfolioData = useCallback((data) => {
+        if (!data) return;
+        if (data.holdings) setHoldings(data.holdings);
+        if (data.transactions) setTxns(data.transactions);
+        if (data.budget !== undefined) setBudget(data.budget);
+        if (data.budgetLog) setBudgetLog(data.budgetLog);
+        setBackendSaved(true);
+      }, []);
+
+      // Load initial portfolio from Python backend (and migrate from localStorage if backend is empty)
+      useEffect(() => {
+        async function fetchBackendPortfolio() {
+          try {
+            const res = await fetch('http://localhost:3000/api/portfolio');
+            if (res.ok) {
+              const data = await res.json();
+              const localH = JSON.parse(localStorage.getItem('sf_h') || '[]');
+              // If backend is fresh/empty but user had browser data, sync it once
+              if ((!data.holdings || data.holdings.length === 0) && localH.length > 0) {
+                const syncRes = await fetch('http://localhost:3000/api/portfolio/sync', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    holdings: localH,
+                    transactions: JSON.parse(localStorage.getItem('sf_t') || '[]'),
+                    budget: JSON.parse(localStorage.getItem('sf_budget') ?? '100000'),
+                    budgetLog: JSON.parse(localStorage.getItem('sf_budlog') || '[]')
+                  })
+                });
+                if (syncRes.ok) {
+                  const synced = await syncRes.json();
+                  applyPortfolioData(synced);
+                  return;
+                }
+              }
+              applyPortfolioData(data);
+            }
+          } catch (e) {
+            console.warn('Backend portfolio unavailable, running in local fallback mode:', e);
+          }
+        }
+        fetchBackendPortfolio();
+      }, [applyPortfolioData]);
+
+      // Keep localStorage in sync as an offline backup
       useEffect(() => { localStorage.setItem('sf_h', JSON.stringify(holdings)); }, [holdings]);
       useEffect(() => { localStorage.setItem('sf_t', JSON.stringify(txns)); }, [txns]);
       useEffect(() => { localStorage.setItem('sf_budget', JSON.stringify(budget)); }, [budget]);
@@ -1056,8 +1901,9 @@
 
       useEffect(() => { loadPrices(); const iv = setInterval(loadPrices, 300000); return ()=>clearInterval(iv); }, [loadPrices]);
 
-      const handleBuy = useCallback(({ symbol, ds, name, sector, qty, price }) => {
+      const handleBuy = useCallback(async ({ symbol, ds, name, sector, qty, price }) => {
         const total = qty * price;
+        // Optimistic UI update
         setHoldings(prev => {
           const idx = prev.findIndex(h=>h.symbol===symbol);
           if (idx>=0) return prev.map((h,i) => i!==idx ? h : { ...h, qty: h.qty+qty, avgBuy: (h.qty*h.avgBuy + qty*price)/(h.qty+qty) });
@@ -1069,11 +1915,27 @@
           setBudgetLog(log => [...log, { type:'BUY', delta:-total, balance:newBal, desc:`Bought ${qty}× ${ds} @ ₹${price.toFixed(2)}`, date:new Date().toISOString() }]);
           return newBal;
         });
-      }, []);
 
-      const handleSell = useCallback(({ holding, qty, price }) => {
+        // Persist to backend portfolio.json
+        try {
+          const res = await fetch('http://localhost:3000/api/portfolio/buy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ symbol, ds, name, sector, qty, price })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            applyPortfolioData(data);
+          }
+        } catch (e) {
+          console.warn('Backend buy sync failed:', e);
+        }
+      }, [applyPortfolioData]);
+
+      const handleSell = useCallback(async ({ holding, qty, price }) => {
         const rPnL = qty*(price - holding.avgBuy);
         const proceeds = qty * price;
+        // Optimistic UI update
         setHoldings(prev => prev.map(h=>h.symbol===holding.symbol ? {...h, qty:h.qty-qty} : h).filter(h=>h.qty>0));
         setTxns(prev => [...prev, { id:uid(), type:'SELL', symbol:holding.symbol, ds:holding.ds, name:holding.name, qty, price, total:proceeds, rPnL, date: new Date().toISOString() }]);
         setBudget(prev => {
@@ -1081,26 +1943,86 @@
           setBudgetLog(log => [...log, { type:'SELL', delta:proceeds, balance:newBal, desc:`Sold ${qty}× ${holding.ds} @ ₹${price.toFixed(2)}`, date:new Date().toISOString() }]);
           return newBal;
         });
-      }, []);
 
-      const handleTopUp = useCallback((amount) => {
+        // Persist to backend portfolio.json
+        try {
+          const res = await fetch('http://localhost:3000/api/portfolio/sell', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ symbol: holding.symbol, qty, price })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            applyPortfolioData(data);
+          }
+        } catch (e) {
+          console.warn('Backend sell sync failed:', e);
+        }
+      }, [applyPortfolioData]);
+
+      const handleTopUp = useCallback(async (amount) => {
+        // Optimistic UI update
         setBudget(prev => {
           const newBal = prev + amount;
           setBudgetLog(log => [...log, { type:'TOPUP', delta:amount, balance:newBal, desc:`Funds added to wallet`, date:new Date().toISOString() }]);
           return newBal;
         });
-      }, []);
 
-      const handleSetBalance = useCallback((amount) => {
+        // Persist to backend portfolio.json
+        try {
+          const res = await fetch('http://localhost:3000/api/portfolio/budget', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'topup', amount })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            applyPortfolioData(data);
+          }
+        } catch (e) {
+          console.warn('Backend topup sync failed:', e);
+        }
+      }, [applyPortfolioData]);
+
+      const handleSetBalance = useCallback(async (amount) => {
+        // Optimistic UI update
         setBudget(() => {
           setBudgetLog(log => [...log, { type:'SET', delta:amount, balance:amount, desc:`Balance set manually to ${fmtL(amount)}`, date:new Date().toISOString() }]);
           return amount;
         });
-      }, []);
 
-      const clearTransactions = useCallback(() => {
-        setTxns([]); setModal(null);
-      }, []);
+        // Persist to backend portfolio.json
+        try {
+          const res = await fetch('http://localhost:3000/api/portfolio/budget', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'set', amount })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            applyPortfolioData(data);
+          }
+        } catch (e) {
+          console.warn('Backend balance set sync failed:', e);
+        }
+      }, [applyPortfolioData]);
+
+      const clearTransactions = useCallback(async () => {
+        setTxns([]);
+        setModal(null);
+        // Persist to backend
+        try {
+          const res = await fetch('http://localhost:3000/api/portfolio/transactions/clear', {
+            method: 'POST'
+          });
+          if (res.ok) {
+            const data = await res.json();
+            applyPortfolioData(data);
+          }
+        } catch (e) {
+          console.warn('Backend clear transactions failed:', e);
+        }
+      }, [applyPortfolioData]);
 
       return (
         <div className="app">
@@ -1115,20 +2037,22 @@
             </div>
           )}
           {loaded && !fetchErr && liveCount > 0 && (
-            <div className="info-bar">✦ Live NSE · {liveCount} symbols fetched · Custom Python Backend API · Auto-refreshes every 5 mins</div>
+            <div className="info-bar">✦ Live NSE · {liveCount} symbols fetched · {backendSaved ? 'Backend database (portfolio.json) active' : 'Connecting to backend…'} · Auto-refreshes every 5 mins</div>
           )}
           {loaded && liveCount === 0 && (
             <div className="info-bar" style={{color:'var(--gold)'}}>◆ API fetch failed. Retrying in background...</div>
           )}
 
-          {view==='dashboard'    && <Dashboard    holdings={holdings} transactions={txns} prices={prices} pricesLoaded={loaded} onBuy={()=>setModal('buy')} setView={setView} budget={budget}/>}
-          {view==='holdings'     && <HoldingsView  holdings={holdings} prices={prices} pricesLoaded={loaded} onBuy={()=>setModal('buy')} onBuyMore={h=>setModal({type:'buyMore',h})} onSell={h=>setModal({type:'sell',h})}/>}
+          {view==='dashboard'    && <Dashboard    holdings={holdings} transactions={txns} prices={prices} pricesLoaded={loaded} onBuy={()=>setModal('buy')} setView={setView} budget={budget} onOpenChart={stock=>setModal({type:'chart',stock})}/>}
+          {view==='holdings'     && <HoldingsView  holdings={holdings} prices={prices} pricesLoaded={loaded} onBuy={()=>setModal('buy')} onBuyMore={h=>setModal({type:'buyMore',h})} onSell={h=>setModal({type:'sell',h})} onOpenChart={stock=>setModal({type:'chart',stock})}/>}
           {view==='transactions' && <TransactionsView transactions={txns} onClear={()=>setModal({type:'clear'})}/>}
           {view==='budget'       && <BudgetView budget={budget} budgetLog={budgetLog} onTopUp={handleTopUp} onSetBalance={handleSetBalance}/>}
+          {view==='learn'        && <LearnView setView={setView}/>}
 
-          {modal==='buy'            && <BuyModal  onClose={()=>setModal(null)} onBuy={handleBuy} prices={prices} budget={budget}/>}
-          {modal?.type==='buyMore'  && <BuyModal  onClose={()=>setModal(null)} onBuy={handleBuy} prices={prices} preselect={modal.h} budget={budget}/>}
+          {modal==='buy'            && <BuyModal  onClose={()=>setModal(null)} onBuy={handleBuy} prices={prices} setPrices={setPrices} budget={budget} onOpenChart={stock=>setModal({type:'chart',stock})}/>}
+          {modal?.type==='buyMore'  && <BuyModal  onClose={()=>setModal(null)} onBuy={handleBuy} prices={prices} setPrices={setPrices} preselect={modal.h} budget={budget} onOpenChart={stock=>setModal({type:'chart',stock})}/>}
           {modal?.type==='sell'     && <SellModal holding={modal.h} prices={prices} onClose={()=>setModal(null)} onSell={handleSell} budget={budget}/>}
+          {modal?.type==='chart'    && <StockChartModal stock={modal.stock} prices={prices} onClose={()=>setModal(null)} onNavigateLearn={()=>setView('learn')}/>}
           {modal?.type==='clear'    && <ConfirmModal message="This will permanently delete all transaction history. Your current holdings will remain intact." onConfirm={clearTransactions} onCancel={()=>setModal(null)}/>}
         </div>
       );
