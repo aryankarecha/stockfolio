@@ -28,13 +28,11 @@ It combines an all-in-one React 18 single-page frontend with a local Python Flas
 
 ```
 stockfolio/
-├── stockfolio.html                    # Frontend SPA (React 18, Babel, SVG Charts, Learn View)
-├── server.py                          # Backend REST API (Flask, Yahoo Finance Proxy, JSON Storage)
-├── portfolio.json                     # Persistent database for cash, holdings, and trade history
-├── ARCHITECTURE.md                    # In-depth technical architecture and system blueprint
-├── PROJECT_REVIEW_2.md                # Academic review presentation script & documentation
-├── Mini_Project_Review_2_Stockfolio.pptx # PowerPoint presentation deck for Project Review 2
-└── README.md                          # Quickstart guide and project overview
+├── stockfolio.html    # Frontend SPA (React 18, Babel, SVG Charts, Learn View)
+├── server.py          # Backend REST API (Flask, Yahoo Finance Proxy, JSON Storage)
+├── portfolio.json     # Persistent database for cash, holdings, and trade history
+├── ARCHITECTURE.md    # In-depth technical architecture and system blueprint
+└── README.md          # Quickstart guide and project overview
 ```
 
 ---
